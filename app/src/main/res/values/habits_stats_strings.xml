@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stats_title">STATISTICS</string>
+    <string name="stats_today">TODAY</string>
+    <string name="stats_best">BEST</string>
+    <string name="stats_total">MARKS</string>
+    <string name="stats_active">ACTIVE</string>
+    <string name="stats_heat">LAST 30 DAYS</string>
+    <string name="stats_week">BY WEEKDAY</string>
+    <string name="stats_habits">BY HABIT</string>
+</resources>
