@@ -1,9 +1,11 @@
 package com.zed.app.feature.habits
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,8 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +49,7 @@ import com.zed.app.ui.theme.ZedSpacing
 fun HabitsScreen(
     onOpenSettings: () -> Unit,
     onOpenEditor: (Int) -> Unit,
+    onOpenStats: () -> Unit,
     viewModel: HabitsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -59,14 +65,45 @@ fun HabitsScreen(
                 onSettingsClick = onOpenSettings
             )
 
-            // Строка статистики: СЕГОДНЯ x/y · РЕКОРД n
+            // Строка статистики = кнопка входа в экран статистики
             if (state.todayTotal > 0) {
-                Text(
-                    text = stringResource(R.string.habits_stats, state.todayDone, state.todayTotal, state.bestStreak),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary,
-                    modifier = Modifier.padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.xs)
-                )
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = colors.surface),
+                    shape = RoundedCornerShape(ZedRadius.md),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, colors.borderVisible),
+                    onClick = onOpenStats,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.xxs)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.habits_stats,
+                                state.todayDone,
+                                state.todayTotal,
+                                state.bestStreak
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textSecondary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = stringResource(R.string.stats_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.accent
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                            null,
+                            tint = colors.textDisabled
+                        )
+                    }
+                }
             }
 
             if (state.loaded && state.habits.isEmpty()) {
@@ -119,7 +156,11 @@ fun HabitsScreen(
                                 }
                             },
                             content = {
-                                HabitCard(item = item, onToggle = { viewModel.toggle(item.id) })
+                                HabitCard(
+                                    item = item,
+                                    onToggle = { viewModel.toggle(item.id) },
+                                    onClick = { onOpenEditor(item.id) } // тап = редактирование
+                                )
                             }
                         )
                     }
