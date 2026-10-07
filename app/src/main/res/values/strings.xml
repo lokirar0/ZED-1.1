@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZED</string>
+
+    <!-- Вкладки -->
+    <string name="tab_habits">HABITS</string>
+    <string name="tab_finance">FINANCE</string>
+    <string name="tab_credits">CREDITS</string>
+    <string name="tab_player">PLAYER</string>
+
+    <!-- Онбординг -->
+    <string name="onb_skip">SKIP</string>
+    <string name="onb_next">NEXT</string>
+    <string name="onb_start">START</string>
+    <string name="onb1_title">ZED</string>
+    <string name="onb1_body">Personal offline assistant. Habits, finance, credits and player — in one device.</string>
+    <string name="onb2_title">OFFLINE</string>
+    <string name="onb2_body">All data is stored only on your device. No cloud, no accounts, no tracking.</string>
+    <string name="onb3_title">4 MODULES</string>
+    <string name="onb3_body">Habits, finance, credits, player. Nothing extra.</string>
+    <string name="onb4_title">CONTROL</string>
+    <string name="onb4_body">Order, control, aesthetics. An interface like an instrument panel.</string>
+
+    <!-- Настройки -->
+    <string name="settings_title">SETTINGS</string>
+    <string name="settings_theme">THEME</string>
+    <string name="theme_system">SYSTEM</string>
+    <string name="theme_light">LIGHT</string>
+    <string name="theme_dark">DARK</string>
+    <string name="settings_language">LANGUAGE</string>
+    <string name="lang_system">SYSTEM</string>
+    <string name="lang_ru">RUSSIAN</string>
+    <string name="lang_en">ENGLISH</string>
+    <string name="settings_notifications">NOTIFICATIONS</string>
+    <string name="settings_notifications_enabled">Enable notifications</string>
+    <string name="settings_data">DATA</string>
+    <string name="settings_about">ABOUT</string>
+    <string name="settings_version">VERSION</string>
+
+    <!-- Бэкап и приватность -->
+    <string name="backup_export">EXPORT BACKUP</string>
+    <string name="backup_import">IMPORT BACKUP</string>
+    <string name="backup_clear">CLEAR ALL DATA</string>
+    <string name="backup_exported">Backup saved</string>
+    <string name="backup_imported">Backup restored</string>
+    <string name="backup_failed">Failed. Check the file</string>
+    <string name="backup_cleared">All data deleted</string>
+    <string name="backup_clear_title">CLEAR ALL DATA?</string>
+    <string name="backup_clear_body">Habits, transactions and credits will be deleted from this device. This cannot be undone.</string>
+    <string name="backup_clear_confirm">DELETE</string>
+    <string name="backup_clear_cancel">CANCEL</string>
+
+    <!-- Привычки -->
+    <string name="habits_streak">STREAK: %1$d</string>
+    <string name="habits_stats">TODAY %1$d/%2$d · BEST %3$d</string>
+    <string name="habits_empty_title">NO HABITS YET</string>
+    <string name="habits_empty_body">Add your first habit — keep it simple.</string>
+    <string name="habits_add">ADD HABIT</string>
+    <string name="habits_deleted">Habit deleted</string>
+    <string name="editor_title_new">NEW HABIT</string>
+    <string name="editor_title_edit">EDIT HABIT</string>
+    <string name="editor_field_title">NAME</string>
+    <string name="editor_field_note">NOTE (OPTIONAL)</string>
+    <string name="editor_save">SAVE</string>
+    <string name="editor_delete">DELETE</string>
+    <string name="editor_error_title">Enter a name</string>
+    <string name="notif_channel">Reminders</string>
+    <string name="notif_title">ZED · HABITS</string>
+    <string name="notif_body">Unmarked habits today: %1$d</string>
+
+    <!-- Финансы -->
+    <string name="finance_income">INCOME</string>
+    <string name="finance_expense">EXPENSE</string>
+    <string name="finance_balance">BALANCE</string>
+    <string name="finance_empty_title">NO TRANSACTIONS</string>
+    <string name="finance_empty_body">Add your first income or expense.</string>
+    <string name="finance_add">ADD TRANSACTION</string>
+    <string name="finance_export">EXPORT CSV</string>
+    <string name="finance_exported">File saved</string>
+    <string name="finance_deleted">Transaction deleted</string>
+    <string name="editor_tx_title">NEW TRANSACTION</string>
+    <string name="editor_amount">AMOUNT</string>
+    <string name="editor_category">CATEGORY</string>
+    <string name="editor_error_amount">Enter an amount greater than zero</string>
+    <string name="cat_food">FOOD</string>
+    <string name="cat_transport">TRANSPORT</string>
+    <string name="cat_subscriptions">SUBSCRIPTIONS</string>
+    <string name="cat_housing">HOUSING</string>
+    <string name="cat_entertainment">ENTERTAINMENT</string>
+    <string name="cat_health">HEALTH</string>
+    <string name="cat_salary">SALARY</string>
+    <string name="cat_other">OTHER</string>
+    <string name="cat_credit">CREDIT PAYMENT</string>
+    <string name="cat_dialog_title">NAME THE CATEGORY</string>
+    <string name="cat_dialog_hint">CATEGORY NAME</string>
+    <string name="cat_dialog_ok">OK</string>
+    <string name="cat_dialog_cancel">CANCEL</string>
+    <string name="cat_manage">CATEGORIES</string>
+    <string name="cat_manage_done">DONE</string>
+
+    <!-- Кредиты -->
+    <string name="credits_empty_title">NO CREDITS</string>
+    <string name="credits_empty_body">Add a credit to track payments.</string>
+    <string name="credits_add">ADD CREDIT</string>
+    <string name="credits_deleted">Credit deleted</string>
+    <string name="credits_burden">MONTHLY BURDEN</string>
+    <string name="credits_active">ACTIVE</string>
+    <string name="credits_payday">PAYMENT DAY: %1$d</string>
+    <string name="credits_due">D-%1$d</string>
+    <string name="credits_overdue">OVERDUE</string>
+    <string name="credits_paid">PAID</string>
+    <string name="editor_credit_new">NEW CREDIT</string>
+    <string name="editor_credit_edit">EDIT CREDIT</string>
+    <string name="editor_credit_title">BANK / CREDIT NAME</string>
+    <string name="editor_credit_amount">MONTHLY PAYMENT</string>
+    <string name="editor_credit_day">PAYMENT DAY (1–31)</string>
+    <string name="editor_error_day">Enter a day from 1 to 31</string>
+    <string name="notif_credits_title">ZED · CREDITS</string>
+    <string name="notif_credits_body">%2$s — %1$d day(s) left until payment</string>
+    <string name="notif_credits_overdue">%1$s — payment overdue</string>
+
+    <!-- Плеер -->
+    <string name="player_empty_title">NO MUSIC</string>
+    <string name="player_empty_body">Grant access to audio files or rescan the library.</string>
+    <string name="player_rescan">RESCAN</string>
+    <string name="player_permission">GRANT ACCESS</string>
+    <string name="player_queue">QUEUE</string>
+    <string name="player_queue_empty">Queue is empty — start playback</string>
+    <string name="player_lists">LISTS</string>
+    <string name="player_speed">SPEED</string>
+    <string name="player_reverb">REVERB</string>
+    <string name="player_eq">EQUALIZER</string>
+    <string name="player_preset_flat">FLAT</string>
+    <string name="player_preset_bass">BASS</string>
+    <string name="player_preset_vocal">VOCAL</string>
+    <string name="player_preset_treble">TREBLE</string>
+    <string name="player_favorites">FAVORITES</string>
+    <string name="player_new_list">NEW PLAYLIST</string>
+    <string name="player_reset">RESET</string>
+    <string name="player_unknown_track">UNKNOWN TRACK</string>
+    <string name="player_all_tracks">ALL TRACKS</string>
+    <string name="player_eq_reverb">EQUALIZER + REVERB</string>
+    <string name="player_track_list">TRACK LIST</string>
+    <string name="player_sleep">SLEEP TIMER</string>
+    <string name="player_lyrics">LYRICS</string>
+    <string name="player_lyrics_none">Lyrics not available for this track</string>
+    <string name="player_more">MORE</string>
+    <string name="player_liked_title">LIKED</string>
+    <string name="player_liked_empty">Tap the heart on a track to save it here</string>
+    <string name="player_playlists_title">PLAYLISTS</string>
+    <string name="player_create_playlist">+ CREATE PLAYLIST</string>
+    <string name="player_add_to_playlist">ADD TO PLAYLIST</string>
+
+    <!-- Поиск -->
+    <string name="search_hint">SEARCH</string>
+    <string name="search_scope">LOOKING IN: HABITS · FINANCE · CREDITS · MUSIC</string>
+    <string name="search_empty">Nothing found</string>
+</resources>
