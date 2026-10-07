@@ -18,13 +18,21 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.zed.app.core.media.AudioEffectsManager
+import com.zed.app.core.settings.SettingsRepository
+import com.zed.app.core.settings.parseEqGains
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 // Фоновой плеер.
-// Speed — объявленная кастомная команда (работает, не трогаем).
-// EQ + Reverb — кастомный AudioProcessor внутри нашего AudioSink.
-// В media3 1.4.1 нет setAudioSink: sink внедряется подменой MediaCodecAudioRenderer.
+// Speed — кастомная команда; EQ + Reverb — AudioProcessor внутри нашего AudioSink.
+// FX-настройки восстанавливаются из DataStore при старте сервиса:
+// музыка с уведомления сразу играет с твоим басом/ревербом, даже без открытия UI.
 @AndroidEntryPoint
 class ZedPlaybackService : MediaSessionService() {
 
@@ -33,7 +41,9 @@ class ZedPlaybackService : MediaSessionService() {
     }
 
     @Inject lateinit var effectsManager: AudioEffectsManager
+    @Inject lateinit var settingsRepository: SettingsRepository
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
 
@@ -53,8 +63,17 @@ class ZedPlaybackService : MediaSessionService() {
             .build()
         player = exoPlayer
 
-        // Менеджеру нужен плеер только для таймера сна
         effectsManager.bindPlayer(exoPlayer)
+
+        // Восстановление FX после (пере)запуска процесса
+        scope.launch {
+            val s = settingsRepository.settings.first()
+            if (s.fxSpeed != 1f) {
+                exoPlayer.playbackParameters = PlaybackParameters(s.fxSpeed, s.fxSpeed)
+            }
+            effectsManager.setReverbLevel(s.fxReverb)
+            effectsManager.setEq(parseEqGains(s.fxEq).toFloatArray())
+        }
 
         session = MediaSession.Builder(this, exoPlayer)
             .setCallback(SessionCallback())
@@ -123,6 +142,7 @@ class ZedPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         effectsManager.release()
         session?.release()
         session = null
