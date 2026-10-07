@@ -54,7 +54,7 @@ import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.launch
 
-// Экран настроек: тема, язык, уведомления, данные (бэкап), о приложении
+// Экран настроек: тема, язык, уведомления (+тест), данные (бэкап), о приложении
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -169,6 +169,22 @@ fun SettingsScreen(
                         uncheckedTrackColor = colors.surfaceRaised
                     )
                 )
+            }
+
+            // Тестовое уведомление: мгновенная проверка канала и разрешений
+            Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
+                TextButton(
+                    onClick = { viewModel.sendTestNotification() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
+                ) {
+                    Text(
+                        text = stringResource(R.string.notif_test_button),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.textSecondary
+                    )
+                }
             }
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
