@@ -22,6 +22,9 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,9 +56,13 @@ import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-// FlowRow в Compose 1.7 ещё экспериментальный API — включаем opt-in
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionEditorScreen(
     onBack: () -> Unit,
@@ -63,10 +71,10 @@ fun TransactionEditorScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
 
-    // Панель имени категории: fromOther = вызвана тапом по «Прочее»
     var showNameDialog by remember { mutableStateOf(false) }
     var nameDialogFromOther by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.finished) {
         if (state.finished) onBack()
@@ -78,7 +86,6 @@ fun TransactionEditorScreen(
             .background(colors.background)
             .verticalScroll(rememberScrollState())
     ) {
-        // Шапка
         Row(
             Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.xs),
             verticalAlignment = Alignment.CenterVertically
@@ -134,9 +141,33 @@ fun TransactionEditorScreen(
                 )
             }
 
+            Spacer(Modifier.height(ZedSpacing.md))
+
+            // Дата операции: по умолчанию сегодня, можно выбрать любую (задним числом)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
+                    .clickableDate { showDatePicker = true }
+                    .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.editor_date),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textSecondary,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = formatEditorDate(state.dateMillis),
+                    style = ZedDataNumber,
+                    color = colors.textDisplay
+                )
+            }
+
             Spacer(Modifier.height(ZedSpacing.lg))
 
-            // Заголовок категорий + кнопка управления (добавить/удалить)
+            // Категории + управление
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -153,7 +184,6 @@ fun TransactionEditorScreen(
             }
             Spacer(Modifier.height(ZedSpacing.sm))
 
-            // Чипы категорий текущего типа + чип «+»
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(ZedSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(ZedSpacing.sm)
@@ -166,7 +196,6 @@ fun TransactionEditorScreen(
                             selected = state.selectedCategoryId == category.id,
                             onClick = {
                                 if (category.key.startsWith("OTHER")) {
-                                    // «Прочее» вызывает панель имени (пустое имя = обычное Прочее)
                                     nameDialogFromOther = true
                                     showNameDialog = true
                                 } else {
@@ -217,6 +246,38 @@ fun TransactionEditorScreen(
         }
     }
 
+    // --- DatePicker: выбор дня операции ---
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.dateMillis
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val utc = datePickerState.selectedDateMillis
+                    if (utc != null) {
+                        // DatePicker отдаёт UTC-полночь → переводим в локальный день, 12:00
+                        val localDay = Instant.ofEpochMilli(utc).atZone(ZoneOffset.UTC).toLocalDate()
+                        val millis = localDay.atTime(12, 0)
+                            .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        viewModel.setDate(millis)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(R.string.cat_dialog_ok), color = colors.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.cat_dialog_cancel), color = colors.textSecondary)
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     // --- Панель имени категории ---
     if (showNameDialog) {
         var name by remember { mutableStateOf("") }
@@ -243,26 +304,18 @@ fun TransactionEditorScreen(
                     }
                     showNameDialog = false
                 }) {
-                    Text(
-                        stringResource(R.string.cat_dialog_ok),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.accent
-                    )
+                    Text(stringResource(R.string.cat_dialog_ok), color = colors.accent)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNameDialog = false }) {
-                    Text(
-                        stringResource(R.string.cat_dialog_cancel),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.textSecondary
-                    )
+                    Text(stringResource(R.string.cat_dialog_cancel), color = colors.textSecondary)
                 }
             }
         )
     }
 
-    // --- Управление категориями: добавить / удалить ---
+    // --- Управление категориями ---
     if (showManageDialog) {
         var newName by remember { mutableStateOf("") }
         AlertDialog(
@@ -271,7 +324,6 @@ fun TransactionEditorScreen(
             title = { Text(stringResource(R.string.cat_manage), color = colors.textDisplay) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    // Добавить
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = newName,
@@ -291,11 +343,7 @@ fun TransactionEditorScreen(
                             Icon(Icons.Outlined.Add, null, tint = colors.accent)
                         }
                     }
-                    HorizontalDivider(
-                        color = colors.border,
-                        modifier = Modifier.padding(vertical = ZedSpacing.sm)
-                    )
-                    // Список категорий текущего типа с удалением
+                    HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
                     state.categories
                         .filter { it.type == state.type.name }
                         .forEach { category ->
@@ -309,7 +357,6 @@ fun TransactionEditorScreen(
                                     color = colors.textPrimary,
                                     modifier = Modifier.weight(1f)
                                 )
-                                // Служебную CREDIT не удаляем
                                 if (category.key != "CREDIT") {
                                     IconButton(onClick = { viewModel.deleteCategory(category.id) }) {
                                         Icon(Icons.Outlined.Delete, null, tint = colors.warning)
@@ -321,23 +368,26 @@ fun TransactionEditorScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showManageDialog = false }) {
-                    Text(
-                        stringResource(R.string.cat_manage_done),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.accent
-                    )
+                    Text(stringResource(R.string.cat_manage_done), color = colors.accent)
                 }
             }
         )
     }
 }
 
-// Подпись чипа: builtIn → локализованный ресурс, кастомная → имя пользователя
+// Дата операции человеком: "6 октября 2026"
+private fun formatEditorDate(millis: Long): String =
+    Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+        .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()))
+
+// Кликабельность строки даты (без ripple — Nothing-стиль)
+private fun Modifier.clickableDate(onClick: () -> Unit): Modifier =
+    this.then(androidx.compose.foundation.clickable(interactionSource = null, indication = null, onClick = onClick))
+
 @Composable
 private fun chipLabel(category: CategoryEntity): String =
     if (category.builtIn) stringResource(categoryKeyRes(category.key)) else category.name
 
-// Сегмент переключателя типа
 @Composable
 private fun TypeSegment(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = LocalZedColors.current
@@ -363,7 +413,6 @@ private fun TypeSegment(label: String, selected: Boolean, onClick: () -> Unit, m
     }
 }
 
-// Чип категории
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
     val colors = LocalZedColors.current
