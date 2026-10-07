@@ -139,7 +139,7 @@ fun FinanceCalendarScreen(
                             style = ZedDataNumber,
                             color = colors.textPrimary
                         )
-                        Spacer(Modifier.width2())
+                        Spacer(Modifier.size(ZedSpacing.md))
                         Text(
                             text = "- ${state.dayExpenseText}",
                             style = ZedDataNumber,
@@ -263,11 +263,4 @@ private fun DayCell(
             if (day.hasIncome) Box(Modifier.size(4.dp).background(colors.textPrimary))
         }
     }
-}
-
-// Маленький хелпер отступа (weight уже занят в Row выше)
-private fun Modifier.width2(): Modifier = this.then(androidx.compose.foundation.layout.SpacerModifierHolder.spacer)
-
-private object androidx.compose.foundation.layout.SpacerModifierHolder {
-    val spacer: Modifier = Modifier.padding(horizontal = ZedSpacing.sm)
 }
