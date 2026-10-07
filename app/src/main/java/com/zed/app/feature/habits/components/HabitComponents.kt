@@ -77,16 +77,20 @@ fun WeekDots(flags: List<Boolean>) {
     }
 }
 
-// Карточка привычки: streak + время напоминания + точечная неделя + чекбокс
+// Карточка привычки.
+// Жесты не конфликтуют: тап по карточке = редактирование,
+// тап по чекбоксу = отметка (чекбокс поглощает клик), свайп = удаление.
 @Composable
-fun HabitCard(item: HabitUiItem, onToggle: () -> Unit) {
+fun HabitCard(item: HabitUiItem, onToggle: () -> Unit, onClick: () -> Unit) {
     val colors = LocalZedColors.current
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.surface),
         shape = RoundedCornerShape(ZedRadius.md),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, colors.borderVisible),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
         Row(
             Modifier.padding(ZedSpacing.lg),
