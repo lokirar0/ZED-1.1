@@ -15,6 +15,7 @@ import com.zed.app.core.export.CsvExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,7 +30,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// Строка списка операций
 data class TransactionUiItem(
     val id: Int,
     val isExpense: Boolean,
@@ -39,7 +39,6 @@ data class TransactionUiItem(
     val note: String
 )
 
-// Баланс текущего месяца
 data class MonthSummaryUi(
     val incomeText: String,
     val expenseText: String,
@@ -47,7 +46,6 @@ data class MonthSummaryUi(
     val balanceNegative: Boolean
 )
 
-// Столбик графика: месяц + доход + расход
 data class MonthPointUi(
     val label: String,
     val income: Long,
@@ -58,6 +56,8 @@ data class FinanceUiState(
     val transactions: List<TransactionUiItem> = emptyList(),
     val summary: MonthSummaryUi = MonthSummaryUi("0", "0", "0", false),
     val chart: List<MonthPointUi> = emptyList(),
+    val monthLabel: String = "",
+    val calendarWeeks: List<List<CalendarDayUi?>> = emptyList(),
     val loaded: Boolean = false
 )
 
@@ -68,11 +68,9 @@ class FinanceViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    // Сырой список для CSV
     val allTransactions: StateFlow<List<Transaction>> = repository.observeTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Свежий снимок категорий для резолвера имён (CSV, список)
     private val categoriesNow = MutableStateFlow<List<CategoryEntity>>(emptyList())
 
     val state: StateFlow<FinanceUiState> =
@@ -89,7 +87,6 @@ class FinanceViewModel @Inject constructor(
         viewModelScope.launch { repository.delete(id) }
     }
 
-    // Сохранение CSV по Uri из системного диалога
     suspend fun exportTo(uri: Uri): Boolean =
         CsvExporter.write(
             context,
@@ -107,14 +104,13 @@ class FinanceViewModel @Inject constructor(
         val zone = ZoneId.systemDefault()
         val dayFmt = DateTimeFormatter.ofPattern("d MMM", locale)
         val currentMonth = YearMonth.now()
+        val today = LocalDate.now()
 
-        // Баланс текущего месяца
         val inMonth = list.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == currentMonth }
         val income = inMonth.filter { it.type == TransactionType.INCOME }.sumOf { it.amountMinor }
         val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
         val balance = income - expense
 
-        // График за 6 месяцев
         val chart = (5 downTo 0).map { offset ->
             val month = currentMonth.minusMonths(offset.toLong())
             val monthTx = list.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month }
@@ -125,7 +121,6 @@ class FinanceViewModel @Inject constructor(
             )
         }
 
-        // Список операций
         val items = list.map { t ->
             TransactionUiItem(
                 id = t.id,
@@ -137,6 +132,33 @@ class FinanceViewModel @Inject constructor(
             )
         }
 
+        // Календарь текущего месяца: точки по дням
+        val byDay = list.groupBy { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() }
+        val lead = currentMonth.atDay(1).dayOfWeek.value - 1
+        val weeks = mutableListOf<List<CalendarDayUi?>>()
+        val row = MutableList<CalendarDayUi?>(lead) { null }
+        for (d in 1..currentMonth.lengthOfMonth()) {
+            val date = currentMonth.atDay(d)
+            val dayTx = byDay[date].orEmpty()
+            row.add(
+                CalendarDayUi(
+                    day = d,
+                    dateMillis = date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli(),
+                    hasExpense = dayTx.any { it.type == TransactionType.EXPENSE },
+                    hasIncome = dayTx.any { it.type == TransactionType.INCOME },
+                    isToday = date == today
+                )
+            )
+            if (row.size == 7) {
+                weeks.add(row.toList())
+                row.clear()
+            }
+        }
+        if (row.isNotEmpty()) {
+            while (row.size < 7) row.add(null)
+            weeks.add(row.toList())
+        }
+
         return FinanceUiState(
             transactions = items,
             summary = MonthSummaryUi(
@@ -146,6 +168,8 @@ class FinanceViewModel @Inject constructor(
                 balanceNegative = balance < 0
             ),
             chart = chart,
+            monthLabel = currentMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
+            calendarWeeks = weeks,
             loaded = true
         )
     }
