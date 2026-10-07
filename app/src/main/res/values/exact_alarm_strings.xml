@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exact_alarm_title">EXACT REMINDERS</string>
+    <string name="exact_alarm_body">Without exact alarms the system delays habit reminders. Allow alarms &amp; reminders for ZED.</string>
+    <string name="exact_alarm_grant">ALLOW</string>
+</resources>
