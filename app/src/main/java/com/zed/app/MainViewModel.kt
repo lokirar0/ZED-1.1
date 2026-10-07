@@ -29,9 +29,12 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
-        // ГАРАНТИЯ РАСПИСАНИЙ: при каждом старте приложения восстанавливаем
-        // глобальные напоминания и персональные напоминания привычек.
-        // Идемпотентно (ExistingPeriodicWorkPolicy.UPDATE), дублей не создаёт.
+        ensureSchedules()
+    }
+
+    // ГАРАНТИЯ РАСПИСАНИЙ: глобальные будильники + персональные напоминания привычек.
+    // Вызывается при старте и при каждом onResume (после выдачи точных будильников).
+    fun ensureSchedules() {
         viewModelScope.launch {
             val s = settingsRepositoryForSchedule.settings.first()
             if (s.notificationsEnabled) {
