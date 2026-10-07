@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.Card
@@ -58,6 +61,7 @@ import kotlinx.coroutines.launch
 fun FinanceScreen(
     onOpenSettings: () -> Unit,
     onOpenEditor: () -> Unit,
+    onOpenCalendar: (Long) -> Unit,
     viewModel: FinanceViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -67,7 +71,6 @@ fun FinanceScreen(
     val deletedText = stringResource(R.string.finance_deleted)
     val exportedText = stringResource(R.string.finance_exported)
 
-    // Системный диалог сохранения файла (SAF, без разрешений)
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
@@ -83,7 +86,6 @@ fun FinanceScreen(
             ZedTopBar(title = stringResource(R.string.tab_finance), onSettingsClick = onOpenSettings)
 
             if (state.loaded && state.transactions.isEmpty()) {
-                // Пустое состояние
                 Column(
                     Modifier.fillMaxSize().padding(ZedSpacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -109,6 +111,17 @@ fun FinanceScreen(
                     verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
                 ) {
                     item { BalanceCard(state.summary) }
+
+                    // Карточка-календарь текущего месяца: тап по дню → полный календарь
+                    item {
+                        CalendarCard(
+                            monthLabel = state.monthLabel,
+                            weeks = state.calendarWeeks,
+                            onDayClick = onOpenCalendar,
+                            onOpenFull = { onOpenCalendar(System.currentTimeMillis()) }
+                        )
+                    }
+
                     item { MonthBars(state.chart) }
                     item {
                         TextButton(onClick = {
@@ -160,7 +173,71 @@ fun FinanceScreen(
     }
 }
 
-// Карточка баланса: ДОХОД / РАСХОД / БАЛАНС моно-цифрами
+// Мини-календарь месяца: точки по дням, тап по дню открывает полный календарь
+@Composable
+private fun CalendarCard(
+    monthLabel: String,
+    weeks: List<List<CalendarDayUi?>>,
+    onDayClick: (Long) -> Unit,
+    onOpenFull: () -> Unit
+) {
+    val colors = LocalZedColors.current
+    Card(
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        shape = RoundedCornerShape(ZedRadius.md),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, colors.borderVisible),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(ZedSpacing.lg)) {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onOpenFull),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = monthLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.textDisplay,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(Icons.Outlined.CalendarMonth, null, tint = colors.textSecondary, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.height(ZedSpacing.md))
+            weeks.forEach { week ->
+                Row(Modifier.fillMaxWidth()) {
+                    week.forEach { day ->
+                        if (day == null) {
+                            Spacer(Modifier.weight(1f))
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onDayClick(day.dateMillis) }
+                                    .padding(vertical = ZedSpacing.xxs),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = day.day.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (day.isToday) colors.accent else colors.textSecondary
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    modifier = Modifier.height(4.dp)
+                                ) {
+                                    if (day.hasExpense) Box(Modifier.size(4.dp).background(colors.accent))
+                                    if (day.hasIncome) Box(Modifier.size(4.dp).background(colors.textPrimary))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun BalanceCard(summary: MonthSummaryUi) {
     val colors = LocalZedColors.current
@@ -195,7 +272,6 @@ private fun BalanceCard(summary: MonthSummaryUi) {
     }
 }
 
-// Точечный график: 6 месяцев, пары столбиков (доход / расход)
 @Composable
 private fun MonthBars(points: List<MonthPointUi>) {
     val colors = LocalZedColors.current
@@ -237,7 +313,6 @@ private fun MonthBars(points: List<MonthPointUi>) {
     }
 }
 
-// Один столбик: высота пропорциональна значению
 @Composable
 private fun Bar(value: Long, max: Long, color: Color) {
     val fraction = if (max > 0) value.toFloat() / max else 0f
@@ -245,7 +320,6 @@ private fun Bar(value: Long, max: Long, color: Color) {
     Box(Modifier.width(6.dp).height(height).background(color))
 }
 
-// Строка операции: категория + дата слева, моно-сумма справа
 @Composable
 private fun TransactionRow(item: TransactionUiItem) {
     val colors = LocalZedColors.current
