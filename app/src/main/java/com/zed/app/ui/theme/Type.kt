@@ -8,25 +8,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.zed.app.R
+import java.util.Locale
 
 // ============================================================
 // ZED — Typography Tokens (Nothing OS style)
 //
-// МУЛЬТИЯЗЫЧНОСТЬ: Doto и Space Mono не содержат кириллицу.
-// Поэтому каждое семейство = основной шрифт (латиница) +
-// фолбэк с кириллицей в том же стиле. Compose подставляет
-// фолбэк погодово: EN выглядит как раньше, RU получает точки/моно.
-// Правка здесь автоматически применяется ко ВСЕМ пунктам UI,
-// потому что вся типографика ссылается на эти семейства.
+// МУЛЬТИЯЗЫЧНОСТЬ (детерминированная):
+// Doto и Space Mono содержат только латиницу, поэтому НЕ используем
+// погодовый фолбэк внутри FontFamily (нестабилен с variable-шрифтами).
+// Вместо этого семейства переключаются ЦЕЛИКОМ по локали приложения:
+//   EN → Doto (точки) / Space Mono (моно)
+//   RU → Handjet (точки с кириллицей) / JetBrains Mono (моно с кириллицей)
+// Токены читаются на каждой композиции → смена языка применяется
+// мгновенно и ко всем пунктам UI без перезапуска.
 // ============================================================
 
-// Точечная матрица: Doto (EN) + Handjet (RU, квадратные LED-точки)
-val DotoFont = FontFamily(
-    Font(R.font.doto_regular, FontWeight.Normal),
-    Font(R.font.handjet_regular, FontWeight.Normal)
-)
+// Текущая локаль приложения (учитывает per-app language через AppCompatDelegate)
+private fun isRu(): Boolean = Locale.getDefault().language == "ru"
 
-// Гротеск: Space Grotesk (латиница); кириллица уходит в системный фолбэк
+// --- Точечная матрица ---
+private val dotLatin by lazy { FontFamily(Font(R.font.doto_regular, FontWeight.Normal)) }
+private val dotCyr by lazy { FontFamily(Font(R.font.handjet_regular, FontWeight.Normal)) }
+
+val DotoFont: FontFamily
+    get() = if (isRu()) dotCyr else dotLatin
+
+// --- Гротеск (латиница; кириллица уходит в системный фолбэк, как раньше) ---
 val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_light, FontWeight.Light),
     Font(R.font.space_grotesk_regular, FontWeight.Normal),
@@ -34,31 +41,47 @@ val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_bold, FontWeight.Bold)
 )
 
-// Моно: Space Mono (EN) + JetBrains Mono (RU) — цифры и лейблы всегда моно
-val SpaceMono = FontFamily(
-    Font(R.font.space_mono_regular, FontWeight.Normal),
-    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
-    Font(R.font.space_mono_bold, FontWeight.Bold),
-    Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
-)
+// --- Моно ---
+private val monoLatin by lazy {
+    FontFamily(
+        Font(R.font.space_mono_regular, FontWeight.Normal),
+        Font(R.font.space_mono_bold, FontWeight.Bold)
+    )
+}
+private val monoCyr by lazy {
+    FontFamily(
+        Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+        Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
+    )
+}
 
-val ZedTypography = Typography(
+val SpaceMono: FontFamily
+    get() = if (isRu()) monoCyr else monoLatin
+
+// --- Typography: два готовых набора, выбираются по локали ---
+private val typLatin by lazy { buildTypography(dotLatin, monoLatin) }
+private val typCyr by lazy { buildTypography(dotCyr, monoCyr) }
+
+val ZedTypography: Typography
+    get() = if (isRu()) typCyr else typLatin
+
+private fun buildTypography(dot: FontFamily, mono: FontFamily) = Typography(
     displayLarge = TextStyle(
-        fontFamily = DotoFont,
+        fontFamily = dot,
         fontWeight = FontWeight.Normal,
         fontSize = 72.sp,
         lineHeight = 72.sp,
         letterSpacing = (-0.03).em
     ),
     displayMedium = TextStyle(
-        fontFamily = DotoFont,
+        fontFamily = dot,
         fontWeight = FontWeight.Normal,
         fontSize = 48.sp,
         lineHeight = 50.sp,
         letterSpacing = (-0.02).em
     ),
     displaySmall = TextStyle(
-        fontFamily = DotoFont,
+        fontFamily = dot,
         fontWeight = FontWeight.Normal,
         fontSize = 36.sp,
         lineHeight = 40.sp,
@@ -89,21 +112,21 @@ val ZedTypography = Typography(
         lineHeight = 21.sp
     ),
     labelLarge = TextStyle(
-        fontFamily = SpaceMono,
+        fontFamily = mono,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 17.sp,
         letterSpacing = 0.04.em
     ),
     labelMedium = TextStyle(
-        fontFamily = SpaceMono,
+        fontFamily = mono,
         fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
         lineHeight = 13.sp,
         letterSpacing = 0.08.em
     ),
     labelSmall = TextStyle(
-        fontFamily = SpaceMono,
+        fontFamily = mono,
         fontWeight = FontWeight.Normal,
         fontSize = 10.sp,
         lineHeight = 12.sp,
@@ -111,18 +134,44 @@ val ZedTypography = Typography(
     )
 )
 
-// Цифры данных (балансы, суммы, тайминги) — моно с кириллическим фолбэком
-val ZedDataNumber = TextStyle(
-    fontFamily = SpaceMono,
-    fontWeight = FontWeight.Normal,
-    fontSize = 16.sp,
-    letterSpacing = 0.04.em
-)
+// --- Цифры данных (балансы, суммы, тайминги, артисты) ---
+private val dataLatin by lazy {
+    TextStyle(
+        fontFamily = monoLatin,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        letterSpacing = 0.04.em
+    )
+}
+private val dataCyr by lazy {
+    TextStyle(
+        fontFamily = monoCyr,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        letterSpacing = 0.04.em
+    )
+}
 
-// Glyph-подписи
-val ZedGlyphLabel = TextStyle(
-    fontFamily = SpaceMono,
-    fontWeight = FontWeight.Bold,
-    fontSize = 11.sp,
-    letterSpacing = 0.08.em
-)
+val ZedDataNumber: TextStyle
+    get() = if (isRu()) dataCyr else dataLatin
+
+// --- Glyph-подписи (жирное моно) ---
+private val glyphLatin by lazy {
+    TextStyle(
+        fontFamily = monoLatin,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        letterSpacing = 0.08.em
+    )
+}
+private val glyphCyr by lazy {
+    TextStyle(
+        fontFamily = monoCyr,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        letterSpacing = 0.08.em
+    )
+}
+
+val ZedGlyphLabel: TextStyle
+    get() = if (isRu()) glyphCyr else glyphLatin
