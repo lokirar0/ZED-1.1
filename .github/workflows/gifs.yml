@@ -1,0 +1,30 @@
+name: Generate ZED GIFs
+
+# Ручной запуск: генерирует 5 dot-matrix GIF и отдаёт их архивом в артефактах
+on:
+  workflow_dispatch:
+
+jobs:
+  gifs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Render GIFs
+        run: python tools/make_gifs.py
+
+      - name: Upload GIFs
+        uses: actions/upload-artifact@v4
+        with:
+          name: zed-gifs
+          path: tools/out/*.gif
+          retention-days: 7
