@@ -4,7 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.R
 import com.zed.app.core.backup.BackupManager
+import com.zed.app.core.notifications.NotificationHelper
 import com.zed.app.core.notifications.ReminderScheduler
 import com.zed.app.core.settings.Settings
 import com.zed.app.core.settings.SettingsRepository
@@ -47,6 +49,16 @@ class SettingsViewModel @Inject constructor(
             if (enabled) ReminderScheduler.scheduleAll(context)
             else ReminderScheduler.cancelAll(context)
         }
+    }
+
+    // Мгновенная проверка канала и разрешений: пуш должен прийти сразу
+    fun sendTestNotification() {
+        NotificationHelper.show(
+            context = context,
+            notificationId = 9999,
+            title = context.getString(R.string.notif_title),
+            text = context.getString(R.string.notif_test_body)
+        )
     }
 
     // --- Данные: бэкап, восстановление, очистка ---
