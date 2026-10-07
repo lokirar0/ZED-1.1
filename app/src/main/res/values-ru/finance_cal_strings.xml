@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_calendar">КАЛЕНДАРЬ</string>
+    <string name="finance_day_empty">В этот день операций не было</string>
+    <string name="finance_day_hint">Нажми на дату, чтобы посмотреть операции и добавить пропущенные</string>
+    <string name="finance_add_expense">+ РАСХОД</string>
+    <string name="finance_add_income">+ ДОХОД</string>
+    <string name="editor_date">ДАТА</string>
+</resources>
