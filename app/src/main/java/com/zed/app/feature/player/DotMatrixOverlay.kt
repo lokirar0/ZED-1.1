@@ -25,7 +25,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-// 5 режимов dot-matrix оверлея. Долгий тап по обложке переключает режим.
+// 5 режимов dot-matrix оверлея поверх обложки:
+// RING → EQ → BREATH → WAVE → GLYPH.
+// Долгий тап по обложке переключает режим. Цикл бесшовный, центр прозрачный.
 private enum class DotFx { RING, EQ, BREATH, WAVE, GLYPH }
 
 @Composable
@@ -37,12 +39,14 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
     val off = colors.border           // #222222
     var mode by remember { mutableStateOf(DotFx.RING) }
 
+    // Фаза основного цикла: 3 секунды, бесшовный повтор
     val t = rememberInfiniteTransition(label = "dotfx")
     val phase by t.animateFloat(
         initialValue = 0f, targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(3000, LinearEasing), RepeatMode.Restart),
         label = "phase"
     )
+    // Быстрая фаза для «спектра»: 800 мс
     val fast by t.animateFloat(
         initialValue = 0f, targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(800, LinearEasing), RepeatMode.Restart),
@@ -51,7 +55,9 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
 
     Box(
         modifier = modifier.pointerInput(Unit) {
-            detectTapGestures(onLongPress = { mode = DotFx.entries[(mode.ordinal + 1) % DotFx.entries.size] })
+            detectTapGestures(onLongPress = {
+                mode = DotFx.entries[(mode.ordinal + 1) % DotFx.entries.size]
+            })
         }
     ) {
         Canvas(Modifier.matchParentSize()) {
@@ -59,40 +65,47 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
             val h = size.height
             val cx = w / 2f
             val cy = h / 2f
-            val dot = w / 48f
-            val gap = dot * 1.6f
+            val dot = w / 48f          // размер «пикселя»
+            val gap = dot * 1.6f       // шаг стопки в EQ
             val twoPi = (Math.PI * 2).toFloat()
 
             when (mode) {
-                // 1. Вращающиеся кольца + красный бегунок
+                // 1. Два встречных кольца точек + красный бегунок (1 оборот / 3 c)
                 DotFx.RING -> {
                     listOf(w * 0.46f to 32, w * 0.40f to 28).forEachIndexed { ri, (r, count) ->
                         for (i in 0 until count) {
                             val a = i * twoPi / count + phase * twoPi * if (ri == 0) 1f else -1f
                             val pulse = 0.5f + 0.5f * sin(a * 3 + phase * twoPi)
-                            drawSquare(cx + cos(a) * r, cy + sin(a) * r, dot, if (pulse > 0.6f) bright else dim, 0.35f + 0.65f * pulse)
+                            drawSquare(
+                                cx + cos(a) * r, cy + sin(a) * r, dot,
+                                if (pulse > 0.6f) bright else dim,
+                                0.35f + 0.65f * pulse
+                            )
                         }
                     }
                     val ra = phase * twoPi
                     drawSquare(cx + cos(ra) * w * 0.46f, cy + sin(ra) * w * 0.46f, dot * 1.4f, accent, 1f)
                 }
 
-                // 2. Круговой эквалайзер
+                // 2. Круговой эквалайзер: 32 радиальных стопки точек, красные пики
                 DotFx.EQ -> {
                     val bars = 32
                     for (i in 0 until bars) {
                         val a = i * twoPi / bars
-                        val level = 0.25f + 0.75f * kotlin.math.abs(sin(i * 1.7f + fast * twoPi) * sin(i * 0.53f + phase * twoPi))
+                        val level = 0.25f + 0.75f * kotlin.math.abs(
+                            sin(i * 1.7f + fast * twoPi) * sin(i * 0.53f + phase * twoPi)
+                        )
                         val steps = (level * 6).toInt().coerceIn(1, 6)
                         for (s in 0 until steps) {
                             val r = w * 0.34f + s * gap
-                            val col = if (s == steps - 1 && s >= 4) accent else if (s % 2 == 0) bright else dim
+                            val col = if (s == steps - 1 && s >= 4) accent
+                                      else if (s % 2 == 0) bright else dim
                             drawSquare(cx + cos(a) * r, cy + sin(a) * r, dot, col, 1f)
                         }
                     }
                 }
 
-                // 3. Дыхание: волна яркости по кольцу + красный бегунок
+                // 3. LED-дыхание: волна яркости по кольцу + красный бегунок раз в цикл
                 DotFx.BREATH -> {
                     val count = 40
                     for (i in 0 until count) {
@@ -109,7 +122,7 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
                     drawSquare(cx + cos(ra) * w * 0.44f, cy + sin(ra) * w * 0.44f, dot * 1.3f, accent, 1f)
                 }
 
-                // 4. Матрица-волна с прозрачным центром
+                // 4. Матрица-волна 16×16 с прозрачным круглым центром, красный гребень
                 DotFx.WAVE -> {
                     val n = 16
                     val step = w / n
@@ -117,14 +130,15 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
                         val px = x * step + step / 2
                         val py = y * step + step / 2
                         val d = sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy))
-                        if (d < w * 0.30f) continue // прозрачный центр
+                        if (d < w * 0.30f) continue // прозрачный центр: обложка видна
                         val wave = 0.5f + 0.5f * sin(phase * twoPi - d / (w * 0.08f))
-                        val col = if (wave > 0.85f) accent else if (wave > 0.5f) bright else dim
+                        val col = if (wave > 0.85f) accent
+                                  else if (wave > 0.5f) bright else dim
                         drawSquare(px, py, dot * 0.8f, col, 0.25f + 0.75f * wave)
                     }
                 }
 
-                // 5. Glyph-полосы по бокам + красный скан-ряд
+                // 5. Glyph-полосы по бокам + красный сканирующий ряд снизу вверх
                 DotFx.GLYPH -> {
                     val cols = listOf(w * 0.08f, w * 0.16f, w * 0.84f, w * 0.92f)
                     val rows = 14
@@ -133,7 +147,8 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
                         for (r in 0 until rows) {
                             val y = h * 0.1f + r * (h * 0.8f / rows)
                             val moving = (r + ci * 3) % rows == activeRow
-                            val col = if (moving) accent else if ((r + ci) % 4 == 0) bright else dim
+                            val col = if (moving) accent
+                                      else if ((r + ci) % 4 == 0) bright else dim
                             drawSquare(x, y, dot, col, 1f)
                         }
                     }
