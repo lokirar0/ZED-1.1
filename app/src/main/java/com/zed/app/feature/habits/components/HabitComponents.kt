@@ -45,7 +45,6 @@ fun SquareCheckbox(checked: Boolean, onCheckedChange: () -> Unit) {
                 if (checked) Modifier.background(colors.accent, RoundedCornerShape(ZedRadius.sm))
                 else Modifier.border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.sm))
             )
-            // без ripple — плоский Nothing-стиль
             .clickable(interactionSource = null, indication = null, onClick = onCheckedChange),
         contentAlignment = Alignment.Center
     ) {
@@ -78,7 +77,7 @@ fun WeekDots(flags: List<Boolean>) {
     }
 }
 
-// Карточка привычки: surface + обводка 1dp, без теней
+// Карточка привычки: streak + время напоминания + точечная неделя + чекбокс
 @Composable
 fun HabitCard(item: HabitUiItem, onToggle: () -> Unit) {
     val colors = LocalZedColors.current
@@ -100,11 +99,22 @@ fun HabitCard(item: HabitUiItem, onToggle: () -> Unit) {
                     color = colors.textPrimary
                 )
                 Spacer(Modifier.height(ZedSpacing.xs))
-                Text(
-                    text = stringResource(R.string.habits_streak, item.streak),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.habits_streak, item.streak),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textSecondary
+                    )
+                    // Время напоминания, если включено
+                    if (item.reminderLabel != null) {
+                        Spacer(Modifier.width(ZedSpacing.md))
+                        Text(
+                            text = item.reminderLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.accent
+                        )
+                    }
+                }
                 Spacer(Modifier.height(ZedSpacing.md))
                 WeekDots(item.weekFlags)
             }
