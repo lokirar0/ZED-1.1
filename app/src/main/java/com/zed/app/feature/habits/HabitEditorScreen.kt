@@ -2,6 +2,7 @@ package com.zed.app.feature.habits
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -149,9 +150,7 @@ fun HabitEditorScreen(
                     Modifier
                         .fillMaxWidth()
                         .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
-                        .then(
-                            Modifier.clickableNoRipple { showTimePicker = true }
-                        )
+                        .clickableNoRipple { showTimePicker = true }
                         .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -230,10 +229,12 @@ fun HabitEditorScreen(
     }
 }
 
-// Кликабельность без ripple (Nothing-стиль)
+// Кликабельность без ripple (Nothing-стиль).
+// ВАЖНО: clickable — extension-функция, нужен импорт
+// androidx.compose.foundation.clickable и вызов от ресивера Modifier.
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     this.then(
-        androidx.compose.foundation.clickable(
+        clickable(
             interactionSource = null,
             indication = null,
             onClick = onClick
