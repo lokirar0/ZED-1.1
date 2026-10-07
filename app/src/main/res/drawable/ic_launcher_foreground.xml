@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Точечная матрица: буква Z из 7 квадратов (Glyph-стиль) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFD71921"
+        android:pathData="M38,38h8v8h-8z M50,38h8v8h-8z M62,38h8v8h-8z M50,50h8v8h-8z M38,62h8v8h-8z M50,62h8v8h-8z M62,62h8v8h-8z" />
+</vector>
