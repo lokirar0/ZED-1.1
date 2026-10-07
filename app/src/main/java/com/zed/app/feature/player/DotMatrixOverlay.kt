@@ -39,17 +39,24 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
     val off = colors.border           // #222222
     var mode by remember { mutableStateOf(DotFx.RING) }
 
-    // Фаза основного цикла: 3 секунды, бесшовный повтор
+    // Фаза основного цикла: 3 секунды, бесшовный повтор.
+    // ВАЖНО: easing передаётся ИМЕНОВАННЫМ параметром (tween(duration, delay, easing))
     val t = rememberInfiniteTransition(label = "dotfx")
     val phase by t.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(3000, LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(
+            tween(durationMillis = 3000, easing = LinearEasing),
+            RepeatMode.Restart
+        ),
         label = "phase"
     )
     // Быстрая фаза для «спектра»: 800 мс
     val fast by t.animateFloat(
         initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(800, LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(
+            tween(durationMillis = 800, easing = LinearEasing),
+            RepeatMode.Restart
+        ),
         label = "fast"
     )
 
