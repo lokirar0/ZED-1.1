@@ -1,7 +1,5 @@
 package com.zed.app.feature.player
 
-import android.content.Context
-import android.os.PowerManager
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,13 +11,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -33,11 +31,10 @@ import kotlin.math.sqrt
 // Аудиореактивный dot-matrix оверлей поверх обложки.
 // 5 режимов: RING → EQ → BREATH → WAVE → GLYPH (долгий тап переключает).
 //
-// БАТАРЕЙНАЯ ДИСЦИПЛИНА:
-// — 30 fps вместо 120 Гц дисплея (15 fps в режиме энергосбережения);
-// — на паузе кадр статичный: ноль рекомпозиций, ноль отрисовок;
-// — в фоне / при выключенном экране тикер полностью остановлен (Lifecycle ON_STOP);
-// — уровень звука читается из процессора без StateFlow — без аллокаций в кадре.
+// ЧАСТОТА: без лимитов — кадр приходит с vsync дисплея (120 Гц на OnePlus 10 Pro).
+// ОСТАНОВКА (экономия батареи): пауза музыки, фон приложения, выключенный экран,
+// уход на другую вкладку/экран (композиция уничтожается → тикер умирает).
+// В простое: статичный кадр, ноль рекомпозиций, ноль отрисовок.
 private enum class DotFx { RING, EQ, BREATH, WAVE, GLYPH }
 
 @Composable
@@ -55,12 +52,12 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
 
     var mode by remember { mutableStateOf(DotFx.RING) }
 
-    // Кадровые переменные: тикер их меняет → Canvas перерисовывается
+    // Кадровые переменные: тикер их меняет → Canvas перерисовывается на каждый vsync
     var phase by remember { mutableStateOf(0f) }
     var level by remember { mutableStateOf(0f) }
     var bass by remember { mutableStateOf(0f) }
 
-    // Видимость: стоп тикера в фоне и при выключенном экране
+    // Видимость: стоп при уходе в фон и при выключенном экране
     val lifecycleOwner = LocalLifecycleOwner.current
     var visible by remember { mutableStateOf(true) }
     DisposableEffect(lifecycleOwner) {
@@ -75,34 +72,25 @@ fun DotMatrixOverlay(modifier: Modifier = Modifier) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Режим энергосбережения системы: режем fps вдвое
-    val context = LocalContext.current
-    var powerSave by remember { mutableStateOf(false) }
-    LaunchedEffect(visible) {
-        powerSave = runCatching {
-            context.getSystemService(Context.POWER_SERVICE)?.let {
-                (it as PowerManager).isPowerSaveMode
-            } ?: false
-        }.getOrDefault(false)
-    }
+    // Активен = играет И виден. Иначе — статичный кадр и ни одного тика
+    val active = isPlaying && visible
 
-    // Тикер: 30 fps (15 в power save). На паузе или в фоне не крутится вовсе
-    LaunchedEffect(isPlaying, visible, powerSave) {
-        if (!isPlaying || !visible) {
-            // Пауза: гасим уровень — останется статичный тусклый кадр
+    LaunchedEffect(active) {
+        if (!active) {
+            // Пауза/фон: гасим уровень, остаётся тусклый статичный кадр
             level = 0f
             bass = 0f
             return@LaunchedEffect
         }
-        val frameDelay = if (powerSave) 66L else 33L
         val start = SystemClock.elapsedRealtime()
         while (true) {
+            // Ждём следующий vsync-кадр дисплея (120 Гц без принудительных задержек)
+            withFrameNanos { }
             val t = SystemClock.elapsedRealtime() - start
             phase = (t % 3000L) / 3000f
-            // Собственное сглаживание: держим пик, плавно отпускаем
+            // Собственное сглаживание уровня: держим пик, плавно отпускаем
             level = maxOf(vm.audioLevel(), level * 0.88f)
             bass = maxOf(vm.audioBass(), bass * 0.85f)
-            kotlinx.coroutines.delay(frameDelay)
         }
     }
 
