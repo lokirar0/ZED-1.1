@@ -37,6 +37,7 @@ import androidx.navigation.navArgument
 import com.zed.app.R
 import com.zed.app.feature.credits.CreditEditorScreen
 import com.zed.app.feature.credits.CreditsScreen
+import com.zed.app.feature.finance.FinanceCalendarScreen
 import com.zed.app.feature.finance.FinanceScreen
 import com.zed.app.feature.finance.TransactionEditorScreen
 import com.zed.app.feature.habits.HabitEditorScreen
@@ -54,7 +55,6 @@ import com.zed.app.ui.navigation.ZedActions
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedSpacing
 
-// Вкладки нижнего бара (Плеер — не вкладка, а вход на полноэкранный экран)
 sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector) {
     data object Habits : Screen("habits", R.string.tab_habits, Icons.Outlined.CheckCircle)
     data object Finance : Screen("finance", R.string.tab_finance, Icons.Outlined.AccountBalanceWallet)
@@ -113,7 +113,6 @@ fun ZedNavHost(startDestination: String) {
                                 )
                             )
                         }
-                        // Плеер: вход на полноэкранный player_screen
                         NavigationBarItem(
                             icon = { Icon(Icons.Outlined.MusicNote, contentDescription = null) },
                             label = {
@@ -140,7 +139,6 @@ fun ZedNavHost(startDestination: String) {
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier.padding(innerPadding),
-                // Переходы в стиле Nothing: быстрое затухание + лёгкий вертикальный сдвиг
                 enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 12 } },
                 exitTransition = { fadeOut(tween(180)) },
                 popEnterTransition = { fadeIn(tween(220)) },
@@ -176,14 +174,41 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Финансы
+                // Финансы: список + календарь + редактор с датой/типом
                 composable(Screen.Finance.route) {
                     FinanceScreen(
                         onOpenSettings = { navController.navigate("settings") },
-                        onOpenEditor = { navController.navigate("finance_editor") }
+                        onOpenEditor = { navController.navigate("finance_editor") },
+                        onOpenCalendar = { dateMillis -> navController.navigate("finance_calendar?date=$dateMillis") }
                     )
                 }
-                composable("finance_editor") {
+                composable(
+                    route = "finance_calendar?date={date}",
+                    arguments = listOf(navArgument("date") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    })
+                ) {
+                    FinanceCalendarScreen(
+                        onBack = { navController.popBackStack() },
+                        onAddTransaction = { dateMillis, type ->
+                            navController.navigate("finance_editor?date=$dateMillis&type=$type")
+                        }
+                    )
+                }
+                composable(
+                    route = "finance_editor?date={date}&type={type}",
+                    arguments = listOf(
+                        navArgument("date") {
+                            type = NavType.LongType
+                            defaultValue = -1L
+                        },
+                        navArgument("type") {
+                            type = NavType.IntType
+                            defaultValue = 0
+                        }
+                    )
+                ) {
                     TransactionEditorScreen(onBack = { navController.popBackStack() })
                 }
 
@@ -207,7 +232,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Полноэкранный плеер
+                // Плеер
                 composable("player_screen") {
                     PlayerScreen(
                         onBack = { navController.popBackStack() },
@@ -218,21 +243,18 @@ fun ZedNavHost(startDestination: String) {
                         onOpenLiked = { navController.navigate("liked_tracks_screen") }
                     )
                 }
-
                 composable("all_tracks_screen") {
                     AllTracksScreen(
                         onBack = { navController.popBackStack() },
                         onPlayed = { navController.popBackStack() }
                     )
                 }
-
                 composable("liked_tracks_screen") {
                     LikedTracksScreen(
                         onBack = { navController.popBackStack() },
                         onPlayed = { navController.popBackStack() }
                     )
                 }
-
                 composable("playlists_screen") {
                     PlaylistsScreen(
                         onBack = { navController.popBackStack() },
@@ -240,7 +262,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Единый поиск
+                // Поиск
                 composable("search") {
                     SearchScreen(
                         onBack = { navController.popBackStack() },
