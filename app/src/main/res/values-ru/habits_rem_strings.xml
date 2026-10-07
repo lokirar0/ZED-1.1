@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_reminder">Напоминание</string>
+    <string name="editor_reminder_time">ВРЕМЯ НАПОМИНАНИЯ</string>
+    <string name="notif_habit_title">ZED · ПРИВЫЧКА</string>
+    <string name="notif_habit_body">Пора отметить привычку: %1$s</string>
+</resources>
