@@ -41,6 +41,7 @@ import com.zed.app.feature.finance.FinanceCalendarScreen
 import com.zed.app.feature.finance.FinanceScreen
 import com.zed.app.feature.finance.TransactionEditorScreen
 import com.zed.app.feature.habits.HabitEditorScreen
+import com.zed.app.feature.habits.HabitStatsScreen
 import com.zed.app.feature.habits.HabitsScreen
 import com.zed.app.feature.onboarding.OnboardingScreen
 import com.zed.app.feature.player.AllTracksScreen
@@ -154,11 +155,12 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Привычки
+                // Привычки + редактор + статистика
                 composable(Screen.Habits.route) {
                     HabitsScreen(
                         onOpenSettings = { navController.navigate("settings") },
-                        onOpenEditor = { id -> navController.navigate("habit_editor/$id") }
+                        onOpenEditor = { id -> navController.navigate("habit_editor/$id") },
+                        onOpenStats = { navController.navigate("habits_stats") }
                     )
                 }
                 composable(
@@ -172,6 +174,9 @@ fun ZedNavHost(startDestination: String) {
                         habitId = entry.arguments?.getInt("habitId") ?: -1,
                         onBack = { navController.popBackStack() }
                     )
+                }
+                composable("habits_stats") {
+                    HabitStatsScreen(onBack = { navController.popBackStack() })
                 }
 
                 // Финансы: список + календарь + редактор с датой/типом
