@@ -71,18 +71,13 @@ class PlayerViewModel @Inject constructor(
     init {
         viewModelScope.launch { refresh() }
 
-        // ВОССТАНОВЛЕНИЕ FX: DataStore — источник правды.
-        // Ползунки не сбрасываются при переключении вкладок и после перезапуска.
+        // ВОССТАНОВЛЕНИЕ FX: DataStore — источник правды (не сбрасывается между вкладками)
         viewModelScope.launch {
             val s = settingsRepository.settings.first()
             effectsManager.setReverbLevel(s.fxReverb)
             effectsManager.setEq(parseEqGains(s.fxEq).toFloatArray())
             _state.update {
-                it.copy(
-                    speed = s.fxSpeed,
-                    reverb = s.fxReverb,
-                    eqGains = parseEqGains(s.fxEq)
-                )
+                it.copy(speed = s.fxSpeed, reverb = s.fxReverb, eqGains = parseEqGains(s.fxEq))
             }
         }
 
@@ -101,9 +96,6 @@ class PlayerViewModel @Inject constructor(
             controller = runCatching { future.get() }.getOrNull()?.also { c ->
                 c.addListener(playerListener)
                 syncFrom(c)
-                // Восстанавливаем shuffle/repeat из DataStore.
-                // Скорость НЕ читаем с плеера здесь: её применяет сервис из DataStore,
-                // иначе гонка инициализации сбросила бы UI на 1.0x.
                 viewModelScope.launch {
                     val s = settingsRepository.settings.first()
                     c.shuffleModeEnabled = s.shuffleEnabled
@@ -113,6 +105,11 @@ class PlayerViewModel @Inject constructor(
             }
         }, ContextCompat.getMainExecutor(context))
     }
+
+    // --- Аудиореактивность для оверлея: читаем напрямую из процессора,
+    //     без StateFlow — ноль аллокаций и ноль лишних инвалидаций ---
+    fun audioLevel(): Float = effectsManager.processor.level
+    fun audioBass(): Float = effectsManager.processor.bass
 
     // --- Воспроизведение ---
 
@@ -235,7 +232,6 @@ class PlayerViewModel @Inject constructor(
 
     fun startSleepTimer(minutes: Int) = effectsManager.startSleepTimer(minutes)
 
-    // Сохранение FX в DataStore (переживает вкладки и перезапуск приложения)
     private fun persistFx() {
         val s = _state.value
         viewModelScope.launch {
@@ -291,6 +287,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    // Тикер позиции: 2 раза в секунду и ТОЛЬКО во время воспроизведения
     private fun startStopTicker(playing: Boolean) {
         if (playing && tickerJob == null) {
             tickerJob = viewModelScope.launch {
