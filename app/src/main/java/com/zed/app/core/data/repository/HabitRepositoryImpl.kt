@@ -27,9 +27,21 @@ class HabitRepositoryImpl @Inject constructor(
 
     override suspend fun getHabit(id: Int): Habit? = habitDao.getHabit(id)?.toDomain()
 
+    override suspend fun getHabitsOnce(): List<Habit> =
+        habitDao.getHabitsOnce().map { it.toDomain() }
+
+    override suspend fun isCompleted(habitId: Int, day: Long): Boolean =
+        completionDao.find(habitId, day) != null
+
     override suspend fun upsert(habit: Habit): Long =
         habitDao.upsert(
-            HabitEntity(id = habit.id, title = habit.title, note = habit.note, createdAt = habit.createdAt)
+            HabitEntity(
+                id = habit.id,
+                title = habit.title,
+                note = habit.note,
+                createdAt = habit.createdAt,
+                reminderTimeMinutes = habit.reminderTimeMinutes
+            )
         )
 
     override suspend fun delete(habitId: Int) = habitDao.delete(habitId)
@@ -49,6 +61,8 @@ class HabitRepositoryImpl @Inject constructor(
         return habitDao.getHabitsOnce().count { it.id !in doneIds }
     }
 
-    private fun HabitEntity.toDomain() = Habit(id, title, note, createdAt)
+    private fun HabitEntity.toDomain() =
+        Habit(id, title, note, createdAt, reminderTimeMinutes)
+
     private fun HabitCompletionEntity.toDomain() = HabitCompletion(id, habitId, day)
 }
