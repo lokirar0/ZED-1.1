@@ -19,8 +19,10 @@ import com.zed.app.core.domain.repository.PlaylistUi
 import com.zed.app.core.media.AudioEffectsManager
 import com.zed.app.core.media.LocalAudioScanner
 import com.zed.app.core.settings.SettingsRepository
+import com.zed.app.core.settings.parseEqGains
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,7 +47,7 @@ data class PlayerUiState(
     val favoriteIds: Set<Long> = emptySet(),
     val playlists: List<PlaylistUi> = emptyList(),
     val shuffle: Boolean = false,
-    val repeatMode: Int = 0, // 0=OFF, 1=ONE, 2=ALL
+    val repeatMode: Int = 0,
     val speed: Float = 1f,
     val reverb: Int = 0,
     val eqGains: List<Float> = List(5) { 0.5f }
@@ -68,6 +70,22 @@ class PlayerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { refresh() }
+
+        // ВОССТАНОВЛЕНИЕ FX: DataStore — источник правды.
+        // Ползунки не сбрасываются при переключении вкладок и после перезапуска.
+        viewModelScope.launch {
+            val s = settingsRepository.settings.first()
+            effectsManager.setReverbLevel(s.fxReverb)
+            effectsManager.setEq(parseEqGains(s.fxEq).toFloatArray())
+            _state.update {
+                it.copy(
+                    speed = s.fxSpeed,
+                    reverb = s.fxReverb,
+                    eqGains = parseEqGains(s.fxEq)
+                )
+            }
+        }
+
         viewModelScope.launch {
             combine(
                 playerRepository.observeFavorites(),
@@ -76,19 +94,21 @@ class PlayerViewModel @Inject constructor(
                 _state.update { it.copy(favoriteIds = favs, playlists = pls) }
             }
         }
+
         val token = SessionToken(context, ComponentName(context, ZedPlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
         future.addListener({
             controller = runCatching { future.get() }.getOrNull()?.also { c ->
                 c.addListener(playerListener)
                 syncFrom(c)
-                // Восстанавливаем сохранённые shuffle/repeat/speed из DataStore
+                // Восстанавливаем shuffle/repeat из DataStore.
+                // Скорость НЕ читаем с плеера здесь: её применяет сервис из DataStore,
+                // иначе гонка инициализации сбросила бы UI на 1.0x.
                 viewModelScope.launch {
                     val s = settingsRepository.settings.first()
                     c.shuffleModeEnabled = s.shuffleEnabled
                     c.repeatMode = s.repeatMode.toPlayerRepeat()
                     _state.update { it.copy(shuffle = s.shuffleEnabled, repeatMode = s.repeatMode) }
-                    sendSpeed(_state.value.speed)
                 }
             }
         }, ContextCompat.getMainExecutor(context))
@@ -175,18 +195,20 @@ class PlayerViewModel @Inject constructor(
         if (list.isNotEmpty()) playQueue(list, 0)
     }
 
-    // --- Эффекты ---
+    // --- Эффекты: каждое изменение сразу в звук И в DataStore ---
 
     fun setSpeed(speed: Float) {
         val v = speed.coerceIn(0.5f, 1.5f)
         _state.update { it.copy(speed = v) }
         sendSpeed(v)
+        persistFx()
     }
 
     fun setReverb(percent: Int) {
         val p = percent.coerceIn(0, 100)
         _state.update { it.copy(reverb = p) }
         effectsManager.setReverbLevel(p)
+        persistFx()
     }
 
     fun setEqBand(index: Int, gain: Float) {
@@ -195,20 +217,35 @@ class PlayerViewModel @Inject constructor(
         gains[index] = gain.coerceIn(0f, 1f)
         _state.update { it.copy(eqGains = gains) }
         effectsManager.setEq(gains.toFloatArray())
+        persistFx()
     }
 
     fun applyEqPreset(preset: List<Float>) {
         _state.update { it.copy(eqGains = preset) }
         effectsManager.setEq(preset.toFloatArray())
+        persistFx()
     }
 
     fun resetFx() {
         _state.update { it.copy(speed = 1f, reverb = 0, eqGains = List(5) { 0.5f }) }
         effectsManager.reset()
         sendSpeed(1f)
+        persistFx()
     }
 
     fun startSleepTimer(minutes: Int) = effectsManager.startSleepTimer(minutes)
+
+    // Сохранение FX в DataStore (переживает вкладки и перезапуск приложения)
+    private fun persistFx() {
+        val s = _state.value
+        viewModelScope.launch {
+            settingsRepository.setFx(
+                speed = s.speed,
+                reverb = s.reverb,
+                eq = s.eqGains.joinToString(",") { String.format(Locale.US, "%.3f", it) }
+            )
+        }
+    }
 
     private fun sendSpeed(speed: Float) {
         val c = controller ?: return
