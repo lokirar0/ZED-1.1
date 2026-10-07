@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
+import android.provider.Settings as AndroidSettings // алиас: не конфликтуем с com.zed.app.core.settings.Settings
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -118,7 +118,7 @@ private fun ExactAlarmPrompt() {
                     runCatching {
                         context.startActivity(
                             Intent(
-                                Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                                 Uri.parse("package:" + context.packageName)
                             )
                         )
@@ -127,7 +127,7 @@ private fun ExactAlarmPrompt() {
                         runCatching {
                             context.startActivity(
                                 Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                     Uri.parse("package:" + context.packageName)
                                 )
                             )
