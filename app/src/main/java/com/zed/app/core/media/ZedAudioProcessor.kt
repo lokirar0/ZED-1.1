@@ -6,31 +6,33 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 // Внутриприложенческая обработка звука (PCM 16-bit) в цепочке ExoPlayer:
-// 5-полосный эквалайзер (биквад-фильтры) + реверб (схема Шрёдера).
-// Не зависит от OEM-библиотеки android.media.audiofx — работает на любом устройстве.
-//
-// ВАЖНО для media3 1.4.1: формат звука — вложенный класс AudioProcessor.AudioFormat,
-// исключение — AudioProcessor.UnhandledAudioFormatException.
+// 5-полосный эквалайзер + реверб Шрёдера + ИЗМЕРЕНИЕ УРОВНЯ/БАСА для анимации.
+// Уровень считается в том же цикле, что и обработка — почти бесплатно по CPU.
 class ZedAudioProcessor : BaseAudioProcessor() {
 
     companion object {
-        // Частоты полос: 60, 230, 910, 3.6k, 14k
         private val BAND_FREQS = floatArrayOf(60f, 230f, 910f, 3600f, 14000f)
+        private const val BASS_HZ = 150f // граница «баса» для однополюсного ФНЧ
     }
 
-    // Параметры приходят из AudioEffectsManager (volatile — читаем в аудио-потоке)
     @Volatile private var eqGains: FloatArray = FloatArray(5) { 0.5f }
     @Volatile private var reverbWet: Float = 0f
 
+    // Аудиореактивность: 0..1, атака быстрая, спад медленный (attack/decay)
+    @Volatile var level: Float = 0f; private set  // общая громкость (RMS)
+    @Volatile var bass: Float = 0f; private set   // энергия низких частот
+
     private var sampleRate: Int = 44100
     private var channelCount: Int = 2
+    private var bassAlpha: Float = 0.02f
+    private var lpState: Float = 0f               // состояние ФНЧ для баса
     private var chains: Array<EqChain> = emptyArray()
     private var reverbs: Array<Schroeder> = emptyArray()
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        // Поддерживаем только PCM 16-bit; иначе ExoPlayer просто выключит процессор
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
             throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
         }
@@ -43,6 +45,8 @@ class ZedAudioProcessor : BaseAudioProcessor() {
     private fun rebuild() {
         chains = Array(channelCount) { EqChain(sampleRate, BAND_FREQS, eqGains) }
         reverbs = Array(channelCount) { Schroeder(sampleRate) }
+        bassAlpha = (2.0 * Math.PI * BASS_HZ / sampleRate).toFloat().coerceIn(0.001f, 0.5f)
+        lpState = 0f
     }
 
     fun setEq(gains: FloatArray) {
@@ -60,24 +64,37 @@ class ZedAudioProcessor : BaseAudioProcessor() {
         val out = replaceOutputBuffer(remaining)
         val wet = reverbWet
         var sampleIndex = 0
+        var sumSq = 0f
+        var bassSum = 0f
         while (inputBuffer.hasRemaining()) {
             val ch = sampleIndex % channelCount
             var s = inputBuffer.short.toInt() / 32768f
-            // Эквалайзер (insert)
             if (ch < chains.size) s = chains[ch].process(s)
-            // Реверб: сухой сигнал + wet * хвост
             if (wet > 0f && ch < reverbs.size) {
                 s += reverbs[ch].process(s) * wet
             }
+            // Измерение: общий RMS + RMS после ФНЧ (бас). Считаем по всем каналам
+            sumSq += s * s
+            lpState += bassAlpha * (s - lpState)
+            bassSum += lpState * lpState
             out.putShort((s.coerceIn(-1f, 1f) * 32767f).toInt().toShort())
             sampleIndex++
         }
         out.flip()
+
+        // Уровень: атака мгновенная, спад плавный (чтобы точки «дышали» между ударами)
+        val n = sampleIndex.coerceAtLeast(1)
+        val rms = sqrt(sumSq / n)
+        val bassRms = sqrt(bassSum / n)
+        val target = (rms * 2.5f).coerceIn(0f, 1f)
+        val targetBass = (bassRms * 4.0f).coerceIn(0f, 1f)
+        level = if (target > level) target else level * 0.90f + target * 0.10f
+        bass = if (targetBass > bass) targetBass else bass * 0.88f + targetBass * 0.12f
     }
 
     override fun onFlush() { rebuild() }
     override fun onReset() { rebuild() }
-    override fun onQueueEndOfStream() { /* хвост реверба не догоняем: упрощение без артефактов */ }
+    override fun onQueueEndOfStream() { /* хвост реверба не догоняем */ }
 }
 
 // Цепочка из 5 пик-фильтров (RBJ biquad), −12..+12 дБ
@@ -98,7 +115,6 @@ private class EqChain(sr: Int, freqs: FloatArray, gains: FloatArray) {
     private fun gainDb(g: Float): Float = (g.coerceIn(0f, 1f) - 0.5f) * 24f
 }
 
-// Биквад-фильтр (peaking EQ)
 private class Biquad(private val freq: Float, private val sr: Int, gainDb: Float, private val q: Float = 1.0f) {
     private var b0 = 1f; private var b1 = 0f; private var b2 = 0f
     private var a1 = 0f; private var a2 = 0f
@@ -129,7 +145,7 @@ private class Biquad(private val freq: Float, private val sr: Int, gainDb: Float
     }
 }
 
-// Реверб Шрёдера: 4 гребёнчатых фильтра + 2 allpass на канал
+// Реверб Шрёдера: 4 гребёнки + 2 allpass на канал
 private class Schroeder(sr: Int) {
     private val combDelays: IntArray = intArrayOf(1557, 1617, 1491, 1422)
         .map { (it.toLong() * sr / 44100L).toInt().coerceAtLeast(1) }.toIntArray()
@@ -145,7 +161,6 @@ private class Schroeder(sr: Int) {
     private val apG = 0.5f
 
     fun process(x: Float): Float {
-        // Гребёнки: сумма задержанных с обратной связью
         var sum = 0f
         for (c in combBufs.indices) {
             val d = combDelays[c]
@@ -157,7 +172,6 @@ private class Schroeder(sr: Int) {
             sum += delayed
         }
         var v = sum / combBufs.size * 0.5f
-        // Allpass-фильтры для размытия эха
         for (a in apX.indices) {
             val d = apDelays[a]
             var i = apIdx[a]
