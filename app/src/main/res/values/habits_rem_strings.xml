@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="editor_reminder">Reminder</string>
+    <string name="editor_reminder_time">REMINDER TIME</string>
+    <string name="notif_habit_title">ZED · HABIT</string>
+    <string name="notif_habit_body">Time to mark habit: %1$s</string>
+</resources>
