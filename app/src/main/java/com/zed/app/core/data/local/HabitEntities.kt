@@ -10,13 +10,14 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-// Привычка
+// Привычка. reminderTimeMinutes = минуты от полуночи (null = напоминание выключено)
 @Entity(tableName = "habits")
 data class HabitEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val note: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val reminderTimeMinutes: Int? = null
 )
 
 // Отметка выполнения за день (day = LocalDate.toEpochDay())
