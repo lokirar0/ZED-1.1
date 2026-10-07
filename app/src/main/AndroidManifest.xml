@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Точные будильники для напоминаний (разрешены по умолчанию, пользователь может отозвать) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".ZedApplication"
@@ -28,7 +30,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Восстановление напоминаний после перезагрузки -->
+        <!-- Восстановление будильников после перезагрузки -->
         <receiver
             android:name=".core.notifications.BootReceiver"
             android:enabled="true"
@@ -37,6 +39,12 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Приёмщик будильников напоминаний -->
+        <receiver
+            android:name=".core.notifications.ReminderReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <!-- Фоновое воспроизведение + системное уведомление с контролами -->
         <service
