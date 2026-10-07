@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exact_alarm_title">ТОЧНЫЕ НАПОМИНАНИЯ</string>
+    <string name="exact_alarm_body">Без точных будильников система откладывает напоминания о привычках. Разрешите ZED будильники и напоминания.</string>
+    <string name="exact_alarm_grant">РАЗРЕШИТЬ</string>
+</resources>
