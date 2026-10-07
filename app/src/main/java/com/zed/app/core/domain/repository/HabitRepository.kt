@@ -8,6 +8,8 @@ interface HabitRepository {
     fun observeHabits(): Flow<List<Habit>>
     fun observeCompletions(): Flow<List<HabitCompletion>>
     suspend fun getHabit(id: Int): Habit?
+    suspend fun getHabitsOnce(): List<Habit>
+    suspend fun isCompleted(habitId: Int, day: Long): Boolean
     suspend fun upsert(habit: Habit): Long
     suspend fun delete(habitId: Int)
     // Переключить отметку за день (нет → поставить, есть → убрать)
