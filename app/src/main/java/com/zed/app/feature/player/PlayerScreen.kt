@@ -79,7 +79,8 @@ private fun audioPermission(): String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
-// Полноэкранный плеер в стиле Nothing OS: крупная обложка, чистый слайдер, 5 кнопок
+// Полноэкранный плеер в стиле Nothing OS: крупная обложка + dot-matrix оверлей,
+// чистый слайдер, 5 кнопок управления, нижняя панель, bottom-sheet'ы
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -119,7 +120,7 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Верхний бар: [←] ПЛЕЕР [🔍] []
+        // Верхний бар: [←] ПЛЕЕР [🔍] [⚙]
         Row(
             Modifier
                 .fillMaxWidth()
@@ -145,7 +146,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Крупная обложка ~62% ширины, скругления 16dp
+        // Крупная обложка ~62% ширины + dot-matrix оверлей поверх
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -161,6 +162,9 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(16.dp))
             )
+            // Dot-matrix оверлей поверх обложки (тот же пакет, импорт не нужен).
+            // Долгий тап по обложке переключает 5 режимов: RING → EQ → BREATH → WAVE → GLYPH
+            DotMatrixOverlay(Modifier.matchParentSize())
         }
 
         Spacer(Modifier.height(ZedSpacing.xl))
@@ -284,7 +288,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(1f))
 
-        // Нижняя панель: ⚙ | ⏱ |  | ☰ | 
+        // Нижняя панель: ⚙ |  | 📝 | ☰ | 
         Row(
             Modifier
                 .fillMaxWidth()
