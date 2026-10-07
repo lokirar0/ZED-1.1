@@ -11,19 +11,35 @@ import com.zed.app.R
 
 // ============================================================
 // ZED — Typography Tokens (Nothing OS style)
-// Шрифты лежат в res/font/ (7 файлов, имена с подчёркиваниями)
+//
+// МУЛЬТИЯЗЫЧНОСТЬ: Doto и Space Mono не содержат кириллицу.
+// Поэтому каждое семейство = основной шрифт (латиница) +
+// фолбэк с кириллицей в том же стиле. Compose подставляет
+// фолбэк погодово: EN выглядит как раньше, RU получает точки/моно.
+// Правка здесь автоматически применяется ко ВСЕМ пунктам UI,
+// потому что вся типографика ссылается на эти семейства.
 // ============================================================
 
-val DotoFont = FontFamily(Font(R.font.doto_regular, FontWeight.Normal))
+// Точечная матрица: Doto (EN) + Handjet (RU, квадратные LED-точки)
+val DotoFont = FontFamily(
+    Font(R.font.doto_regular, FontWeight.Normal),
+    Font(R.font.handjet_regular, FontWeight.Normal)
+)
+
+// Гротеск: Space Grotesk (латиница); кириллица уходит в системный фолбэк
 val SpaceGrotesk = FontFamily(
     Font(R.font.space_grotesk_light, FontWeight.Light),
     Font(R.font.space_grotesk_regular, FontWeight.Normal),
     Font(R.font.space_grotesk_medium, FontWeight.Medium),
     Font(R.font.space_grotesk_bold, FontWeight.Bold)
 )
+
+// Моно: Space Mono (EN) + JetBrains Mono (RU) — цифры и лейблы всегда моно
 val SpaceMono = FontFamily(
     Font(R.font.space_mono_regular, FontWeight.Normal),
-    Font(R.font.space_mono_bold, FontWeight.Bold)
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.space_mono_bold, FontWeight.Bold),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold)
 )
 
 val ZedTypography = Typography(
@@ -95,7 +111,7 @@ val ZedTypography = Typography(
     )
 )
 
-// Цифры данных (балансы, суммы, тайминги)
+// Цифры данных (балансы, суммы, тайминги) — моно с кириллическим фолбэком
 val ZedDataNumber = TextStyle(
     fontFamily = SpaceMono,
     fontWeight = FontWeight.Normal,
