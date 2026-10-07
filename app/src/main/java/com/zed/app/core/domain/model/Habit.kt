@@ -5,7 +5,8 @@ data class Habit(
     val id: Int = 0,
     val title: String,
     val note: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val reminderTimeMinutes: Int? = null // минуты от полуночи, null = выключено
 )
 
 data class HabitCompletion(
