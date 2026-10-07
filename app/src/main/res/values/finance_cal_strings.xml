@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_calendar">CALENDAR</string>
+    <string name="finance_day_empty">No transactions on this day</string>
+    <string name="finance_day_hint">Tap a date to see transactions and add missed ones</string>
+    <string name="finance_add_expense">+ EXPENSE</string>
+    <string name="finance_add_income">+ INCOME</string>
+    <string name="editor_date">DATE</string>
+</resources>
