@@ -2,6 +2,7 @@ package com.zed.app.feature.finance
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -380,9 +381,17 @@ private fun formatEditorDate(millis: Long): String =
     Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()))
 
-// Кликабельность строки даты (без ripple — Nothing-стиль)
+// Кликабельность строки даты без ripple (Nothing-стиль).
+// ВАЖНО: clickable — extension-функция, работает только с импортом
+// androidx.compose.foundation.clickable и вызовом от ресивера Modifier.
 private fun Modifier.clickableDate(onClick: () -> Unit): Modifier =
-    this.then(androidx.compose.foundation.clickable(interactionSource = null, indication = null, onClick = onClick))
+    this.then(
+        clickable(
+            interactionSource = null,
+            indication = null,
+            onClick = onClick
+        )
+    )
 
 @Composable
 private fun chipLabel(category: CategoryEntity): String =
