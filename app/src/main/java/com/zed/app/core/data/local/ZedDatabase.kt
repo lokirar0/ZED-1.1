@@ -3,8 +3,7 @@ package com.zed.app.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-// Единая БД ZED, version 1 (новый репозиторий — чистая история миграций).
-// fallbackToDestructiveMigration: личный офлайн-проект, миграции не критичны.
+// v2: habits.reminderTimeMinutes (персональные напоминания)
 @Database(
     entities = [
         HabitEntity::class,
@@ -17,7 +16,7 @@ import androidx.room.RoomDatabase
         PlaylistEntity::class,
         PlaylistTrackEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class ZedDatabase : RoomDatabase() {
