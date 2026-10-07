@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stats_title">СТАТИСТИКА</string>
+    <string name="stats_today">СЕГОДНЯ</string>
+    <string name="stats_best">РЕКОРД</string>
+    <string name="stats_total">ОТМЕТОК</string>
+    <string name="stats_active">АКТИВНО</string>
+    <string name="stats_heat">ПОСЛЕДНИЕ 30 ДНЕЙ</string>
+    <string name="stats_week">ПО ДНЯМ НЕДЕЛИ</string>
+    <string name="stats_habits">ПО ПРИВЫЧКАМ</string>
+</resources>
