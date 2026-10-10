@@ -83,8 +83,8 @@ android {
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("io.coil-kt:coil-gif:2.7.0")   // уже была для GIF
-    implementation("androidx.glance:glance-appwidget:1.1.1") // виджеты на Compose // 
+    // AppCompat: родитель темы Theme.AppCompat.NoActionBar + переключатель языка
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.2")
@@ -118,8 +118,12 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // Coil (обложки альбомов)
+    // Coil: обложки альбомов + GIF-декодер для оверлеев
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-gif:2.7.0")
+
+    // Glance: виджеты OxygenOS на Compose (Today + Budget)
+    implementation("androidx.glance:glance-appwidget:1.1.1")
 
     // Media3 1.4.1 (API учтён: вложенный AudioFormat, без setAudioSink)
     implementation("androidx.media3:media3-exoplayer:1.4.1")
