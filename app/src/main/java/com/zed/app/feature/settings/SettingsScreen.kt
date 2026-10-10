@@ -49,15 +49,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zed.app.BuildConfig
 import com.zed.app.R
 import com.zed.app.core.settings.ThemeMode
+import com.zed.app.ui.components.rememberHapticClick
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.launch
 
-// Экран настроек: тема, язык, уведомления (+тест), данные (бэкап), о приложении
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenYearReport: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -69,7 +70,7 @@ fun SettingsScreen(
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* при отказе расписание остаётся: система просто не покажет уведомление */ }
+    ) { /* при отказе расписание остаётся */ }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -117,10 +118,11 @@ fun SettingsScreen(
             // --- ТЕМА ---
             SectionLabel(stringResource(R.string.settings_theme))
             ThemeMode.entries.forEach { mode ->
+                val click = rememberHapticClick { viewModel.setThemeMode(mode) }
                 SettingsRow(
                     title = stringResource(mode.titleRes()),
                     selected = settings.themeMode == mode,
-                    onClick = { viewModel.setThemeMode(mode) }
+                    onClick = click
                 )
             }
 
@@ -130,10 +132,11 @@ fun SettingsScreen(
             SectionLabel(stringResource(R.string.settings_language))
             listOf("system" to R.string.lang_system, "ru" to R.string.lang_ru, "en" to R.string.lang_en)
                 .forEach { (code, labelRes) ->
+                    val click = rememberHapticClick { viewModel.setLanguage(code) }
                     SettingsRow(
                         title = stringResource(labelRes),
                         selected = settings.language == code,
-                        onClick = { viewModel.setLanguage(code) }
+                        onClick = click
                     )
                 }
 
@@ -170,11 +173,10 @@ fun SettingsScreen(
                     )
                 )
             }
-
-            // Тестовое уведомление: мгновенная проверка канала и разрешений
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
+                val testClick = rememberHapticClick { viewModel.sendTestNotification() }
                 TextButton(
-                    onClick = { viewModel.sendTestNotification() },
+                    onClick = testClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
@@ -192,30 +194,42 @@ fun SettingsScreen(
             // --- ДАННЫЕ ---
             SectionLabel(stringResource(R.string.settings_data))
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
+                val exportClick = rememberHapticClick {
+                    exportLauncher.launch("zed_backup_${System.currentTimeMillis()}.json")
+                }
+                val importClick = rememberHapticClick { importLauncher.launch(arrayOf("application/json")) }
                 DataButton(
                     label = stringResource(R.string.backup_export),
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
-                    onClick = { exportLauncher.launch("zed_backup_${System.currentTimeMillis()}.json") }
+                    onClick = exportClick
                 )
                 DataButton(
                     label = stringResource(R.string.backup_import),
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
-                    onClick = { importLauncher.launch(arrayOf("application/json")) }
+                    onClick = importClick
                 )
                 DataButton(
                     label = stringResource(R.string.backup_clear),
                     color = colors.warning,
                     borderColor = colors.warning,
-                    onClick = { showClearDialog = true }
+                    onClick = rememberHapticClick { showClearDialog = true }
                 )
             }
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- О ПРИЛОЖЕНИИ ---
+            // --- О ПРИЛОЖЕНИИ + ГОДОВОЙ ОТЧЁТ ---
             SectionLabel(stringResource(R.string.settings_about))
+            Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
+                DataButton(
+                    label = stringResource(R.string.report_title),
+                    color = colors.accent,
+                    borderColor = colors.accent,
+                    onClick = rememberHapticClick(onOpenYearReport)
+                )
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md)) {
                 Text(
                     text = stringResource(R.string.settings_version),
