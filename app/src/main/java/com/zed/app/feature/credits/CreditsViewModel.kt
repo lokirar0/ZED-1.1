@@ -3,6 +3,8 @@ package com.zed.app.feature.credits
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.core.domain.model.Credit
+import com.zed.app.core.domain.model.CreditPayment
 import com.zed.app.core.domain.repository.CreditRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.domain.util.MoneyFormatter
@@ -20,13 +22,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-// Карточка кредита на экране
 data class CreditUiItem(
     val id: Int,
     val title: String,
     val monthlyText: String,
     val payDay: Int,
-    val days: Long,            // до ближайшего неоплаченного платежа (<0 = просрочка)
+    val days: Long,
     val paidThisMonth: Boolean,
     val countdownDanger: Boolean
 )
@@ -45,8 +46,16 @@ class CreditsViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    // Свежий снимок оплат для undo
+    private var paymentsNow: List<CreditPayment> = emptyList()
+
+    // Последний удалённый кредит + его оплаты
+    private var lastCredit: Credit? = null
+    private var lastPayments: List<CreditPayment> = emptyList()
+
     val state: StateFlow<CreditsUiState> =
         combine(repository.observeCredits(), repository.observePayments()) { credits, payments ->
+            paymentsNow = payments
             val today = LocalDate.now()
             val paidByCredit = payments.groupBy({ it.creditId }, { it.yearMonth })
 
@@ -76,11 +85,9 @@ class CreditsViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CreditsUiState())
 
     init {
-        // Гарантируем, что воркер кредитов запланирован (идемпотентно)
         viewModelScope.launch { ReminderScheduler.scheduleCredits(context) }
     }
 
-    // Отметка «оплачено» + авто-списание в модуле «Финансы»
     fun togglePaid(creditId: Int, paid: Boolean) {
         viewModelScope.launch {
             val yearMonth = YearMonth.now().toString()
@@ -100,7 +107,24 @@ class CreditsViewModel @Inject constructor(
         }
     }
 
-    fun delete(creditId: Int) {
-        viewModelScope.launch { repository.delete(creditId) }
+    // Удаление со снимком для отмены
+    fun deleteWithSnapshot(creditId: Int) {
+        viewModelScope.launch {
+            val credit = repository.getCredit(creditId) ?: return@launch
+            lastCredit = credit
+            lastPayments = paymentsNow.filter { it.creditId == creditId }
+            repository.delete(creditId)
+        }
+    }
+
+    // ОТМЕНА: кредит + все его отметки «оплачено»
+    fun restoreLast() {
+        viewModelScope.launch {
+            val credit = lastCredit ?: return@launch
+            repository.upsert(credit)
+            lastPayments.forEach { p -> repository.setPaid(credit.id, p.yearMonth, true) }
+            lastCredit = null
+            lastPayments = emptyList()
+        }
     }
 }
