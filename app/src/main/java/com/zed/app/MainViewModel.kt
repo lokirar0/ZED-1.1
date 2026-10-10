@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zed.app.core.domain.repository.HabitRepository
+import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.notifications.ReminderScheduler
 import com.zed.app.core.settings.Settings
 import com.zed.app.core.settings.SettingsRepository
@@ -20,20 +21,22 @@ import kotlinx.coroutines.launch
 class MainViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val habitRepository: HabitRepository,
+    private val transactionRepository: TransactionRepository,
     private val settingsRepositoryForSchedule: SettingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    // null = настройки ещё не прочитаны (показываем чёрный экран, без вспышки онбординга)
+    // null = настройки ещё не прочитаны (чёрный экран без вспышки онбординга)
     val settings: StateFlow<Settings?> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         ensureSchedules()
+        // Повторяющиеся операции: копии за пропущенные месяцы при каждом старте
+        viewModelScope.launch { transactionRepository.materializeRecurring() }
     }
 
-    // ГАРАНТИЯ РАСПИСАНИЙ: глобальные будильники + персональные напоминания привычек.
-    // Вызывается при старте и при каждом onResume (после выдачи точных будильников).
+    // Будильники напоминаний: глобальные + персональные (идемпотентно)
     fun ensureSchedules() {
         viewModelScope.launch {
             val s = settingsRepositoryForSchedule.settings.first()
