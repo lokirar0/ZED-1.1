@@ -83,7 +83,8 @@ android {
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0") // переключатель языка (AppCompatDelegate)
+    implementation("io.coil-kt:coil-gif:2.7.0")   // уже была для GIF
+    implementation("androidx.glance:glance-appwidget:1.1.1") // виджеты на Compose // 
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.2")
