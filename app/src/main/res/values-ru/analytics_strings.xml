@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analytics_title">АКТИВНОСТЬ И АНАЛИТИКА</string>
+    <string name="act_section">ЭТОТ МЕСЯЦ</string>
+    <string name="act_days_format">%1$d / %2$d дней</string>
+    <string name="act_time">ВРЕМЯ</string>
+    <string name="act_avg">СРЕДНЯЯ СЕССИЯ</string>
+    <string name="act_launches">ЗАПУСКОВ</string>
+    <string name="fin_compare">СРАВНЕНИЕ МЕСЯЦЕВ</string>
+    <string name="cmp_cur">этот месяц</string>
+    <string name="cmp_prev">прошлый месяц</string>
+    <string name="cmp_more">Потрачено на %1$d%% больше, чем в прошлом месяце</string>
+    <string name="cmp_less">Потрачено на %1$d%% меньше, чем в прошлом месяце</string>
+    <string name="cmp_same">Расходы на том же уровне</string>
+    <string name="cmp_no_data">Недостаточно данных для сравнения</string>
+    <string name="goals_title">ЦЕЛИ ПРИВЫЧЕК</string>
+    <string name="goals_hint">Цель дней из 30</string>
+    <string name="goals_progress">Выполнено %1$d / %2$d</string>
+</resources>
