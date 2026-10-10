@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_recurring">ПОВТОРЯТЬ ЕЖЕМЕСЯЧНО</string>
+    <string name="finance_quick">БЫСТРОЕ ДОБАВЛЕНИЕ</string>
+    <string name="finance_quick_other">+ ДРУГОЕ</string>
+    <string name="finance_added">Добавлено</string>
+    <string name="finance_forecast">ПРОГНОЗ НА КОНЕЦ МЕСЯЦА: %1$s</string>
+    <string name="finance_per_day">БЕЗОПАСНО В ДЕНЬ: %1$s</string>
+</resources>
