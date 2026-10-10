@@ -56,7 +56,6 @@ data class MonthPointUi(
     val expense: Long
 )
 
-// Шаблон быстрого добавления (топ по частоте использования)
 data class QuickTx(
     val label: String,
     val categoryId: Int,
@@ -86,6 +85,9 @@ class FinanceViewModel @Inject constructor(
 
     private val categoriesNow = MutableStateFlow<List<CategoryEntity>>(emptyList())
 
+    // Снимок последней удалённой операции для ОТМЕНЫ
+    private var lastTx: Transaction? = null
+
     val state: StateFlow<FinanceUiState> =
         combine(repository.observeTransactions(), categoryRepository.observeCategories()) { list, cats ->
             categoriesNow.value = cats
@@ -94,15 +96,22 @@ class FinanceViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { categoryRepository.ensureSeeded() }
-        // Авто-создание месячных копий повторяющихся операций
         viewModelScope.launch { repository.materializeRecurring() }
     }
 
-    fun delete(id: Int) {
+    // Удаление со снимком для отмены
+    fun deleteWithSnapshot(id: Int) {
+        lastTx = allTransactions.value.firstOrNull { it.id == id }
         viewModelScope.launch { repository.delete(id) }
     }
 
-    // Quick-Add: мгновенная операция из шаблона (сегодня, расход)
+    // ОТМЕНА: вставляем операцию обратно с тем же id
+    fun restoreLast() {
+        val tx = lastTx ?: return
+        lastTx = null
+        viewModelScope.launch { repository.insert(tx) }
+    }
+
     fun quickAdd(q: QuickTx) {
         viewModelScope.launch {
             repository.insert(
@@ -140,12 +149,10 @@ class FinanceViewModel @Inject constructor(
         val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
         val balance = income - expense
 
-        // ПРОГНОЗ на конец месяца: текущий темп расходов × дней в месяце
         val dayOfMonth = today.dayOfMonth
         val daysInMonth = currentMonth.lengthOfMonth()
         val projected = if (dayOfMonth > 0) expense.toLong() * daysInMonth / dayOfMonth else expense
         val forecast = income - projected
-        // Безопасный дневной лимит: остаток баланса / оставшиеся дни
         val daysLeft = (daysInMonth - dayOfMonth).coerceAtLeast(1)
         val perDay = if (balance > 0) balance / daysLeft else 0L
 
@@ -171,7 +178,6 @@ class FinanceViewModel @Inject constructor(
             )
         }
 
-        // Quick-Add шаблоны: топ-6 самых частых пар (категория + сумма) среди расходов
         val quick = list
             .filter { it.type == TransactionType.EXPENSE && it.sourceId == null }
             .groupBy { it.categoryId to it.amountMinor }
@@ -185,7 +191,6 @@ class FinanceViewModel @Inject constructor(
             .sortedWith(compareByDescending<QuickTx> { it.uses }.thenByDescending { it.amountMinor })
             .take(6)
 
-        // Календарь текущего месяца
         val byDay = list.groupBy { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() }
         val lead = currentMonth.atDay(1).dayOfWeek.value - 1
         val weeks = mutableListOf<List<CalendarDayUi?>>()
