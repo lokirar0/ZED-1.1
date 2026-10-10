@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenYearReport: () -> Unit,
+    onOpenAnalytics: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -194,21 +195,17 @@ fun SettingsScreen(
             // --- ДАННЫЕ ---
             SectionLabel(stringResource(R.string.settings_data))
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
-                val exportClick = rememberHapticClick {
-                    exportLauncher.launch("zed_backup_${System.currentTimeMillis()}.json")
-                }
-                val importClick = rememberHapticClick { importLauncher.launch(arrayOf("application/json")) }
                 DataButton(
                     label = stringResource(R.string.backup_export),
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
-                    onClick = exportClick
+                    onClick = rememberHapticClick { exportLauncher.launch("zed_backup_${System.currentTimeMillis()}.json") }
                 )
                 DataButton(
                     label = stringResource(R.string.backup_import),
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
-                    onClick = importClick
+                    onClick = rememberHapticClick { importLauncher.launch(arrayOf("application/json")) }
                 )
                 DataButton(
                     label = stringResource(R.string.backup_clear),
@@ -220,7 +217,7 @@ fun SettingsScreen(
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- О ПРИЛОЖЕНИИ + ГОДОВОЙ ОТЧЁТ ---
+            // --- О ПРИЛОЖЕНИИ: отчёт, аналитика, версия ---
             SectionLabel(stringResource(R.string.settings_about))
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
                 DataButton(
@@ -228,6 +225,12 @@ fun SettingsScreen(
                     color = colors.accent,
                     borderColor = colors.accent,
                     onClick = rememberHapticClick(onOpenYearReport)
+                )
+                DataButton(
+                    label = stringResource(R.string.analytics_title),
+                    color = colors.textSecondary,
+                    borderColor = colors.borderVisible,
+                    onClick = rememberHapticClick(onOpenAnalytics)
                 )
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md)) {
