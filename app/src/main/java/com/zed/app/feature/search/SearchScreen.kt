@@ -36,17 +36,18 @@ import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-// Единый поиск по приложению: привычки, финансы, кредиты, музыка
+// Единый поиск: привычки, финансы, кредиты, музыка.
+// Тап по музыке = сразу воспроизвести трек (очередь = вся библиотека).
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,
     onNavigateToTab: (String) -> Unit,
+    onPlayTrack: (Long) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
 
-    // Группы результатов: маршрут навигации → заголовок секции
     val groups = listOf(
         "habits" to R.string.tab_habits,
         "finance" to R.string.tab_finance,
@@ -132,7 +133,11 @@ fun SearchScreen(
                             )
                         }
                         items(group) { result ->
-                            SearchResultRow(result) { onNavigateToTab(result.tabRoute) }
+                            SearchResultRow(result) {
+                                // Музыка играет сразу, остальное ведёт на вкладку
+                                if (result.trackId != -1L) onPlayTrack(result.trackId)
+                                else onNavigateToTab(result.tabRoute)
+                            }
                         }
                     }
                 }
