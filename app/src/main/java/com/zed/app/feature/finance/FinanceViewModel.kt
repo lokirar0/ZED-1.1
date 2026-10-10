@@ -36,14 +36,18 @@ data class TransactionUiItem(
     val amountText: String,
     val categoryName: String,
     val dateLabel: String,
-    val note: String
+    val note: String,
+    val isRecurring: Boolean
 )
 
 data class MonthSummaryUi(
     val incomeText: String,
     val expenseText: String,
     val balanceText: String,
-    val balanceNegative: Boolean
+    val balanceNegative: Boolean,
+    val forecastText: String,
+    val forecastNegative: Boolean,
+    val perDayText: String
 )
 
 data class MonthPointUi(
@@ -52,12 +56,21 @@ data class MonthPointUi(
     val expense: Long
 )
 
+// Шаблон быстрого добавления (топ по частоте использования)
+data class QuickTx(
+    val label: String,
+    val categoryId: Int,
+    val amountMinor: Long,
+    val uses: Int
+)
+
 data class FinanceUiState(
     val transactions: List<TransactionUiItem> = emptyList(),
-    val summary: MonthSummaryUi = MonthSummaryUi("0", "0", "0", false),
+    val summary: MonthSummaryUi = MonthSummaryUi("0", "0", "0", false, "0", false, "0"),
     val chart: List<MonthPointUi> = emptyList(),
     val monthLabel: String = "",
     val calendarWeeks: List<List<CalendarDayUi?>> = emptyList(),
+    val quick: List<QuickTx> = emptyList(),
     val loaded: Boolean = false
 )
 
@@ -81,10 +94,26 @@ class FinanceViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { categoryRepository.ensureSeeded() }
+        // Авто-создание месячных копий повторяющихся операций
+        viewModelScope.launch { repository.materializeRecurring() }
     }
 
     fun delete(id: Int) {
         viewModelScope.launch { repository.delete(id) }
+    }
+
+    // Quick-Add: мгновенная операция из шаблона (сегодня, расход)
+    fun quickAdd(q: QuickTx) {
+        viewModelScope.launch {
+            repository.insert(
+                Transaction(
+                    type = TransactionType.EXPENSE,
+                    amountMinor = q.amountMinor,
+                    categoryId = q.categoryId,
+                    note = q.label
+                )
+            )
+        }
     }
 
     suspend fun exportTo(uri: Uri): Boolean =
@@ -111,6 +140,15 @@ class FinanceViewModel @Inject constructor(
         val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
         val balance = income - expense
 
+        // ПРОГНОЗ на конец месяца: текущий темп расходов × дней в месяце
+        val dayOfMonth = today.dayOfMonth
+        val daysInMonth = currentMonth.lengthOfMonth()
+        val projected = if (dayOfMonth > 0) expense.toLong() * daysInMonth / dayOfMonth else expense
+        val forecast = income - projected
+        // Безопасный дневной лимит: остаток баланса / оставшиеся дни
+        val daysLeft = (daysInMonth - dayOfMonth).coerceAtLeast(1)
+        val perDay = if (balance > 0) balance / daysLeft else 0L
+
         val chart = (5 downTo 0).map { offset ->
             val month = currentMonth.minusMonths(offset.toLong())
             val monthTx = list.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month }
@@ -128,11 +166,26 @@ class FinanceViewModel @Inject constructor(
                 amountText = MoneyFormatter.format(t.amountMinor),
                 categoryName = categoryNameFor(t, cats),
                 dateLabel = dayFmt.format(Instant.ofEpochMilli(t.dateMillis).atZone(zone)),
-                note = t.note
+                note = t.note,
+                isRecurring = t.recurring || t.sourceId != null
             )
         }
 
-        // Календарь текущего месяца: точки по дням
+        // Quick-Add шаблоны: топ-6 самых частых пар (категория + сумма) среди расходов
+        val quick = list
+            .filter { it.type == TransactionType.EXPENSE && it.sourceId == null }
+            .groupBy { it.categoryId to it.amountMinor }
+            .map { (key, group) ->
+                val (catId, amount) = key
+                val label = group.firstOrNull { it.note.isNotBlank() }?.note
+                    ?: cats.firstOrNull { it.id == catId }?.displayName(context)
+                    ?: "—"
+                QuickTx(label = label, categoryId = catId, amountMinor = amount, uses = group.size)
+            }
+            .sortedWith(compareByDescending<QuickTx> { it.uses }.thenByDescending { it.amountMinor })
+            .take(6)
+
+        // Календарь текущего месяца
         val byDay = list.groupBy { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() }
         val lead = currentMonth.atDay(1).dayOfWeek.value - 1
         val weeks = mutableListOf<List<CalendarDayUi?>>()
@@ -165,11 +218,15 @@ class FinanceViewModel @Inject constructor(
                 incomeText = MoneyFormatter.format(income),
                 expenseText = MoneyFormatter.format(expense),
                 balanceText = (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance)),
-                balanceNegative = balance < 0
+                balanceNegative = balance < 0,
+                forecastText = (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast)),
+                forecastNegative = forecast < 0,
+                perDayText = MoneyFormatter.format(perDay)
             ),
             chart = chart,
             monthLabel = currentMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
             calendarWeeks = weeks,
+            quick = quick,
             loaded = true
         )
     }
