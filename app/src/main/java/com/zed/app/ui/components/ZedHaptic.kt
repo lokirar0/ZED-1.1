@@ -2,18 +2,10 @@ package com.zed.app.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 
-// Обёртка клика с тактильным откликом в стиле Nothing:
-// короткий «текстовый» щелчок на каждое действие пользователя.
+// Тактильный отклик теперь ГЛОБАЛЬНЫЙ: MainActivity.dispatchTouchEvent
+// даёт тик на каждый тап и отклик на удержание по всему приложению.
+// Эта обёртка оставлена как прозрачный passthrough, чтобы существующие
+// вызовы rememberHapticClick(...) продолжали компилироваться без двойной вибрации.
 @Composable
-fun rememberHapticClick(onClick: () -> Unit): () -> Unit {
-    val haptic = LocalHapticFeedback.current
-    return remember(onClick) {
-        {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            onClick()
-        }
-    }
-}
+fun rememberHapticClick(onClick: () -> Unit): () -> Unit = remember(onClick) { onClick }
