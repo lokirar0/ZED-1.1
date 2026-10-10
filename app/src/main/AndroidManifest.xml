@@ -8,7 +8,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Точные будильники для напоминаний (разрешены по умолчанию, пользователь может отозвать) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
@@ -30,7 +29,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Восстановление будильников после перезагрузки -->
         <receiver
             android:name=".core.notifications.BootReceiver"
             android:enabled="true"
@@ -40,13 +38,34 @@
             </intent-filter>
         </receiver>
 
-        <!-- Приёмщик будильников напоминаний -->
         <receiver
             android:name=".core.notifications.ReminderReceiver"
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Фоновое воспроизведение + системное уведомление с контролами -->
+        <!-- Виджеты OxygenOS: Today и Budget (Glance) -->
+        <receiver
+            android:name=".core.widgets.TodayWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".core.widgets.BudgetWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/budget_widget_info" />
+        </receiver>
+
         <service
             android:name=".feature.player.ZedPlaybackService"
             android:exported="true"
