@@ -12,5 +12,7 @@ data class Transaction(
     val note: String = "",
     val dateMillis: Long = System.currentTimeMillis(),
     val creditId: Int? = null,
-    val yearMonth: String? = null
+    val yearMonth: String? = null,
+    val recurring: Boolean = false,
+    val sourceId: Int? = null
 )
