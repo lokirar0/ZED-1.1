@@ -25,11 +25,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.Pause
@@ -459,10 +459,10 @@ private fun QueueSheet(
                         Icon(Icons.Outlined.PlaylistAdd, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
                     }
                     IconButton(onClick = { onMove(track.id, -1) }) {
-                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowUp, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.KeyboardArrowUp, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
                     }
                     IconButton(onClick = { onMove(track.id, 1) }) {
-                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowDown, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.KeyboardArrowDown, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
                     }
                 }
             }
