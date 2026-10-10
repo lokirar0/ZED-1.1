@@ -32,6 +32,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -102,7 +104,7 @@ fun TransactionEditorScreen(
         }
 
         Column(Modifier.padding(ZedSpacing.lg)) {
-            // Переключатель ДОХОД / РАСХОД
+            // ДОХОД / РАСХОД
             Row(horizontalArrangement = Arrangement.spacedBy(ZedSpacing.sm)) {
                 TypeSegment(
                     label = stringResource(R.string.finance_income),
@@ -144,12 +146,12 @@ fun TransactionEditorScreen(
 
             Spacer(Modifier.height(ZedSpacing.md))
 
-            // Дата операции: по умолчанию сегодня, можно выбрать любую (задним числом)
+            // Дата операции
             Row(
                 Modifier
                     .fillMaxWidth()
                     .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
-                    .clickableDate { showDatePicker = true }
+                    .clickableNoRipple { showDatePicker = true }
                     .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -163,6 +165,31 @@ fun TransactionEditorScreen(
                     text = formatEditorDate(state.dateMillis),
                     style = ZedDataNumber,
                     color = colors.textDisplay
+                )
+            }
+
+            Spacer(Modifier.height(ZedSpacing.md))
+
+            // Повторять ежемесячно (подписки, аренда, ЗП)
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.finance_recurring),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textSecondary,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = state.recurring,
+                    onCheckedChange = viewModel::setRecurring,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.accent,
+                        checkedTrackColor = colors.accentSubtle,
+                        uncheckedThumbColor = colors.textSecondary,
+                        uncheckedTrackColor = colors.surfaceRaised
+                    )
                 )
             }
 
@@ -247,18 +274,15 @@ fun TransactionEditorScreen(
         }
     }
 
-    // --- DatePicker: выбор дня операции ---
+    // --- DatePicker ---
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.dateMillis
-        )
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = state.dateMillis)
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     val utc = datePickerState.selectedDateMillis
                     if (utc != null) {
-                        // DatePicker отдаёт UTC-полночь → переводим в локальный день, 12:00
                         val localDay = Instant.ofEpochMilli(utc).atZone(ZoneOffset.UTC).toLocalDate()
                         val millis = localDay.atTime(12, 0)
                             .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -376,15 +400,11 @@ fun TransactionEditorScreen(
     }
 }
 
-// Дата операции человеком: "6 октября 2026"
 private fun formatEditorDate(millis: Long): String =
     Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()))
 
-// Кликабельность строки даты без ripple (Nothing-стиль).
-// ВАЖНО: clickable — extension-функция, работает только с импортом
-// androidx.compose.foundation.clickable и вызовом от ресивера Modifier.
-private fun Modifier.clickableDate(onClick: () -> Unit): Modifier =
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
     this.then(
         clickable(
             interactionSource = null,
