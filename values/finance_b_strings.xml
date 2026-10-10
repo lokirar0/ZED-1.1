@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_recurring">RECUR MONTHLY</string>
+    <string name="finance_quick">QUICK ADD</string>
+    <string name="finance_quick_other">+ OTHER</string>
+    <string name="finance_added">Added</string>
+    <string name="finance_forecast">FORECAST: %1$s</string>
+    <string name="finance_per_day">SAFE PER DAY: %1$s</string>
+</resources>
