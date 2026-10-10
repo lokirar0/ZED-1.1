@@ -3,8 +3,8 @@ package com.zed.app.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -50,6 +50,7 @@ import com.zed.app.feature.player.LikedTracksScreen
 import com.zed.app.feature.player.PlayerScreen
 import com.zed.app.feature.player.PlaylistsScreen
 import com.zed.app.feature.search.SearchScreen
+import com.zed.app.feature.settings.AnalyticsScreen
 import com.zed.app.feature.settings.SettingsScreen
 import com.zed.app.feature.settings.YearReportScreen
 import com.zed.app.ui.components.ZedTopBar
@@ -68,6 +69,15 @@ sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector)
     }
 }
 
+// Анимации в стиле Nothing: push-экраны въезжают сбоку на 10% с затуханием,
+// вкладки переключаются чистым кроссфейдом (без сдвига).
+private val pushEnter = fadeIn(tween(200)) + slideInHorizontally(tween(260)) { it / 10 }
+private val pushExit = fadeOut(tween(150))
+private val popEnter = fadeIn(tween(200))
+private val popExit = fadeOut(tween(200)) + slideOutHorizontally(tween(240)) { it / 10 }
+private val tabFadeIn = fadeIn(tween(180))
+private val tabFadeOut = fadeOut(tween(140))
+
 @Composable
 fun ZedNavHost(
     startDestination: String,
@@ -82,7 +92,7 @@ fun ZedNavHost(
     val showBottomBar = currentRoute in tabRoutes
     val colors = LocalZedColors.current
 
-    // Действие из шортката иконки: переходим после построения графа
+    // Действие из шортката иконки
     LaunchedEffect(startAction) {
         when (startAction) {
             "finance_editor" -> navController.navigate("finance_editor")
@@ -155,10 +165,10 @@ fun ZedNavHost(
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier.padding(innerPadding),
-                enterTransition = { fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 12 } },
-                exitTransition = { fadeOut(tween(180)) },
-                popEnterTransition = { fadeIn(tween(220)) },
-                popExitTransition = { fadeOut(tween(180)) + slideOutVertically(tween(180)) { it / 12 } }
+                enterTransition = { pushEnter },
+                exitTransition = { pushExit },
+                popEnterTransition = { popEnter },
+                popExitTransition = { popExit }
             ) {
                 composable("onboarding") {
                     OnboardingScreen(
@@ -170,8 +180,14 @@ fun ZedNavHost(
                     )
                 }
 
-                // Привычки
-                composable(Screen.Habits.route) {
+                // Вкладки: чистый кроссфейд
+                composable(
+                    route = Screen.Habits.route,
+                    enterTransition = { tabFadeIn },
+                    exitTransition = { tabFadeOut },
+                    popEnterTransition = { tabFadeIn },
+                    popExitTransition = { tabFadeOut }
+                ) {
                     HabitsScreen(
                         onOpenSettings = { navController.navigate("settings") },
                         onOpenEditor = { id -> navController.navigate("habit_editor/$id") },
@@ -194,8 +210,13 @@ fun ZedNavHost(
                     HabitStatsScreen(onBack = { navController.popBackStack() })
                 }
 
-                // Финансы
-                composable(Screen.Finance.route) {
+                composable(
+                    route = Screen.Finance.route,
+                    enterTransition = { tabFadeIn },
+                    exitTransition = { tabFadeOut },
+                    popEnterTransition = { tabFadeIn },
+                    popExitTransition = { tabFadeOut }
+                ) {
                     FinanceScreen(
                         onOpenSettings = { navController.navigate("settings") },
                         onOpenEditor = { navController.navigate("finance_editor") },
@@ -232,8 +253,13 @@ fun ZedNavHost(
                     TransactionEditorScreen(onBack = { navController.popBackStack() })
                 }
 
-                // Кредиты
-                composable(Screen.Credits.route) {
+                composable(
+                    route = Screen.Credits.route,
+                    enterTransition = { tabFadeIn },
+                    exitTransition = { tabFadeOut },
+                    popEnterTransition = { tabFadeIn },
+                    popExitTransition = { tabFadeOut }
+                ) {
                     CreditsScreen(
                         onOpenSettings = { navController.navigate("settings") },
                         onOpenEditor = { id -> navController.navigate("credit_editor/$id") }
@@ -309,15 +335,19 @@ fun ZedNavHost(
                     )
                 }
 
-                // Настройки + годовой отчёт
+                // Настройки + отчёт + аналитика
                 composable("settings") {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
-                        onOpenYearReport = { navController.navigate("year_report") }
+                        onOpenYearReport = { navController.navigate("year_report") },
+                        onOpenAnalytics = { navController.navigate("analytics") }
                     )
                 }
                 composable("year_report") {
                     YearReportScreen(onBack = { navController.popBackStack() })
+                }
+                composable("analytics") {
+                    AnalyticsScreen(onBack = { navController.popBackStack() })
                 }
             }
         }
