@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings as AndroidSettings
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -58,13 +59,13 @@ class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
 
-    // ============================================================
+    // Замер сессии для экрана «Активность»: старт в onResume, стоп в onPause
+    private var sessionStartMs = 0L
+
+    // ------------------------------------------------------------
     // ГЛОБАЛЬНЫЙ HAPTIC-СЛОЙ (стиль Nothing):
-    // — короткий «тик» на каждый тап (down→up без сдвига);
-    // — отклик удержания через 500 мс (долгий тап);
-    // — скроллы и свайпы молчат (сдиг больше порога).
-    // Работает на всех экранах приложения, включая будущие.
-    // ============================================================
+    // тик на каждый тап, отклик удержания на долгий тап, скроллы молчат
+    // ------------------------------------------------------------
     private val hapticHandler = Handler(Looper.getMainLooper())
     private val slop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     private var downX = 0f
@@ -86,7 +87,6 @@ class MainActivity : AppCompatActivity() {
                     hapticHandler.postDelayed(longPressRunnable, 500L)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    // Начали двигать палец → это скролл/свайп, удержание отменяем
                     if (abs(ev.x - downX) > slop * 2 || abs(ev.y - downY) > slop * 2) {
                         hapticHandler.removeCallbacks(longPressRunnable)
                     }
@@ -95,7 +95,6 @@ class MainActivity : AppCompatActivity() {
                     hapticHandler.removeCallbacks(longPressRunnable)
                     val dx = abs(ev.x - downX)
                     val dy = abs(ev.y - downY)
-                    // Чистый тап → лёгкий тик (если удержание уже не отработало)
                     if (!longFired && dx <= slop && dy <= slop) {
                         window?.decorView?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     }
@@ -115,7 +114,6 @@ class MainActivity : AppCompatActivity() {
             applyAppLocale(settingsRepository.settings.first().language)
         }
 
-        // Действие из шортката иконки (долгое нажатие на иконку ZED)
         val startAction = intent?.getStringExtra("zed_action")
 
         setContent {
@@ -143,15 +141,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Уходим в фон / на домашний экран → виджеты получают свежие данные
-    override fun onPause() {
-        super.onPause()
-        ZedWidgetRefresher.update(this)
-    }
-
     override fun onResume() {
         super.onResume()
+        sessionStartMs = SystemClock.elapsedRealtime()
         vm.ensureSchedules()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Сохраняем длительность сессии и обновляем виджеты
+        val seconds = (SystemClock.elapsedRealtime() - sessionStartMs) / 1000
+        vm.addSession(seconds)
+        ZedWidgetRefresher.update(this)
     }
 
     // Шорткаты на иконке приложения
