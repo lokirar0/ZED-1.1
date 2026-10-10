@@ -3,6 +3,8 @@ package com.zed.app.feature.habits
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.core.domain.model.Habit
+import com.zed.app.core.domain.model.HabitCompletion
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.util.StreakCalculator
 import com.zed.app.core.notifications.ReminderScheduler
@@ -24,7 +26,7 @@ data class HabitUiItem(
     val streak: Int,
     val weekFlags: List<Boolean>,
     val doneToday: Boolean,
-    val reminderLabel: String? // "20:00" или null
+    val reminderLabel: String?
 )
 
 data class HabitsUiState(
@@ -41,8 +43,16 @@ class HabitsViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    // Свежий снимок отметок для undo
+    private var completionsNow: List<HabitCompletion> = emptyList()
+
+    // Последний удалённый объект для восстановления
+    private var lastHabit: Habit? = null
+    private var lastCompletions: List<HabitCompletion> = emptyList()
+
     val state: StateFlow<HabitsUiState> =
         combine(repository.observeHabits(), repository.observeCompletions()) { habits, completions ->
+            completionsNow = completions
             val today = LocalDate.now().toEpochDay()
             val byHabit = completions.groupBy({ it.habitId }, { it.day })
 
@@ -75,11 +85,29 @@ class HabitsViewModel @Inject constructor(
         viewModelScope.launch { repository.toggle(habitId, LocalDate.now().toEpochDay()) }
     }
 
-    // Удаление: чистим и персональное расписание напоминаний
-    fun delete(habitId: Int) {
+    // Удаление со снимком для возможной отмены
+    fun deleteWithSnapshot(habitId: Int) {
         viewModelScope.launch {
+            val habit = repository.getHabit(habitId) ?: return@launch
+            lastHabit = habit
+            lastCompletions = completionsNow.filter { it.habitId == habitId }
             ReminderScheduler.cancelHabitReminder(context, habitId)
             repository.delete(habitId)
+        }
+    }
+
+    // ОТМЕНА: возвращаем привычку и все её отметки
+    fun restoreLast() {
+        viewModelScope.launch {
+            val habit = lastHabit ?: return@launch
+            repository.upsert(habit)
+            // Дней нет после каскада → toggle вставит каждую отметку обратно
+            lastCompletions.forEach { c -> repository.toggle(habit.id, c.day) }
+            habit.reminderTimeMinutes?.let { minutes ->
+                ReminderScheduler.scheduleHabitReminder(context, habit.id, minutes)
+            }
+            lastHabit = null
+            lastCompletions = emptyList()
         }
     }
 }
