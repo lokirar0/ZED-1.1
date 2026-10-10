@@ -43,9 +43,9 @@
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Виджеты OxygenOS: Today и Budget (Glance) -->
+        <!-- Виджеты OxygenOS: Today и Budget (RemoteViews, стабильный API) -->
         <receiver
-            android:name=".core.widgets.TodayWidgetReceiver"
+            android:name=".core.widgets.TodayWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -56,7 +56,7 @@
         </receiver>
 
         <receiver
-            android:name=".core.widgets.BudgetWidgetReceiver"
+            android:name=".core.widgets.BudgetWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
