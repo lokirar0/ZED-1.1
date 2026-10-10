@@ -20,7 +20,8 @@ import kotlinx.coroutines.launch
 data class SearchItem(
     val title: String,
     val subtitle: String,
-    val tabRoute: String
+    val tabRoute: String,
+    val trackId: Long = -1L // для музыки: id трека, чтобы играть по тапу
 )
 
 data class SearchUiState(
@@ -68,9 +69,9 @@ class SearchViewModel @Inject constructor(
             }
             credits.filter { it.title.lowercase().contains(q) || it.note.lowercase().contains(q) }
                 .forEach { results += SearchItem(it.title, it.note, "credits") }
-            // Музыка ведёт на полноэкранный плеер
+            // Музыка: тап по результату сразу играет трек (очередь = вся библиотека)
             music.filter { it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) }
-                .forEach { results += SearchItem(it.title, it.artist, "player_screen") }
+                .forEach { results += SearchItem(it.title, it.artist, "player_screen", it.id) }
             SearchUiState(rawQuery, results)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SearchUiState())
