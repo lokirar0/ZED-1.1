@@ -22,6 +22,7 @@ data class TxEditorState(
     val amountText: String = "",
     val note: String = "",
     val dateMillis: Long = System.currentTimeMillis(),
+    val recurring: Boolean = false,
     val categories: List<CategoryEntity> = emptyList(),
     val selectedCategoryId: Int? = null,
     val amountError: Boolean = false,
@@ -35,7 +36,6 @@ class TransactionEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // Аргументы навигации: дата (из календаря) и начальный тип операции
     private val argDate: Long = savedStateHandle.get<Long>("date") ?: -1L
     private val argType: Int = savedStateHandle.get<Int>("type") ?: 0
 
@@ -77,9 +77,12 @@ class TransactionEditorViewModel @Inject constructor(
         _state.value = _state.value.copy(note = value)
     }
 
-    // Дата из DatePicker: выбранный день + 12:00 локального времени
     fun setDate(millis: Long) {
         _state.value = _state.value.copy(dateMillis = millis)
+    }
+
+    fun setRecurring(value: Boolean) {
+        _state.value = _state.value.copy(recurring = value)
     }
 
     fun select(categoryId: Int) {
@@ -122,9 +125,12 @@ class TransactionEditorViewModel @Inject constructor(
                     amountMinor = minor,
                     categoryId = categoryId,
                     note = current.note.trim(),
-                    dateMillis = current.dateMillis
+                    dateMillis = current.dateMillis,
+                    recurring = current.recurring
                 )
             )
+            // Сразу материализуем копии, если шаблон создан задним числом
+            repository.materializeRecurring()
             _state.value = _state.value.copy(finished = true)
         }
     }
