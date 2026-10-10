@@ -61,12 +61,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -87,8 +85,7 @@ private fun audioPermission(): String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
-// Полноэкранный плеер: обложка + dot-matrix оверлей, слайдер, 5 кнопок,
-// нижняя панель (⚙ | EQ | 📝 | ☰ | ) — таймер сна убран, эквалайзер на его месте
+// Полноэкранный плеер. Haptic глобальный (MainActivity), здесь без ручных вызовов.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -103,7 +100,6 @@ fun PlayerScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     var sheet by remember { mutableStateOf(Sheet.NONE) }
 
     var granted by remember {
@@ -128,7 +124,7 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Верхний бар: [←] ПЛЕЕР [🔍] []
+        // Верхний бар
         Row(
             Modifier
                 .fillMaxWidth()
@@ -154,7 +150,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Крупная обложка + dot-matrix оверлей
+        // Обложка + dot-matrix оверлей
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -210,10 +206,7 @@ fun PlayerScreen(
                     }
                 }
             }
-            IconButton(onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                viewModel.toggleFavorite()
-            }) {
+            IconButton(onClick = { viewModel.toggleFavorite() }) {
                 Icon(
                     if (state.current?.id in state.favoriteIds) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
                     null,
@@ -244,7 +237,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Ряд управления: Shuffle | Prev | PLAY | Next | Repeat
+        // Ряд управления
         Row(
             Modifier
                 .fillMaxWidth()
@@ -255,27 +248,18 @@ fun PlayerScreen(
             Icon(
                 Icons.Outlined.Shuffle, null,
                 tint = if (state.shuffle) colors.accent else colors.textDisabled,
-                modifier = Modifier.size(22.dp).clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.toggleShuffle()
-                }
+                modifier = Modifier.size(22.dp).clickable { viewModel.toggleShuffle() }
             )
             Icon(
                 Icons.Outlined.SkipPrevious, null,
                 tint = colors.textPrimary,
-                modifier = Modifier.size(32.dp).clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.previous()
-                }
+                modifier = Modifier.size(32.dp).clickable { viewModel.previous() }
             )
             Box(
                 Modifier
                     .size(64.dp)
                     .background(colors.accent, RoundedCornerShape(16.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        viewModel.togglePlayPause()
-                    },
+                    .clickable { viewModel.togglePlayPause() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -288,25 +272,19 @@ fun PlayerScreen(
             Icon(
                 Icons.Outlined.SkipNext, null,
                 tint = colors.textPrimary,
-                modifier = Modifier.size(32.dp).clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.next()
-                }
+                modifier = Modifier.size(32.dp).clickable { viewModel.next() }
             )
             Icon(
                 if (state.repeatMode == 1) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat,
                 null,
                 tint = if (state.repeatMode == 0) colors.textDisabled else colors.accent,
-                modifier = Modifier.size(22.dp).clickable {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    viewModel.cycleRepeat()
-                }
+                modifier = Modifier.size(22.dp).clickable { viewModel.cycleRepeat() }
             )
         }
 
         Spacer(Modifier.weight(1f))
 
-        // Нижняя панель: ⚙ | EQ | 📝 |  | ⋮ (таймер сна убран, EQ на его месте)
+        // Нижняя панель: ⚙ | EQ | 📝 |  | ⋮
         Row(
             Modifier
                 .fillMaxWidth()
@@ -343,10 +321,7 @@ fun PlayerScreen(
             queue = state.queue,
             queueIndex = state.queueIndex,
             onPlayAt = { i -> viewModel.playAt(i); sheet = Sheet.NONE },
-            onPlayNext = { id ->
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                viewModel.playNextById(id)
-            },
+            onPlayNext = { id -> viewModel.playNextById(id) },
             onMove = { id, steps -> viewModel.moveBySteps(id, steps) },
             onDismiss = { sheet = Sheet.NONE }
         )
@@ -362,7 +337,7 @@ fun PlayerScreen(
                 modifier = Modifier.padding(ZedSpacing.xl)
             )
             Spacer(Modifier.height(ZedSpacing.xl))
-        }
+        )
         Sheet.MORE -> ModalBottomSheet(
             onDismissRequest = { sheet = Sheet.NONE },
             containerColor = colors.surface
@@ -378,8 +353,7 @@ fun PlayerScreen(
     }
 }
 
-// Очередь = вся библиотека: тап — играть, долгий тап + драг — переместить,
-// кнопки: «следующей» и стрелки вверх/вниз
+// Очередь: тап — играть, долгий тап + драг — переместить, кнопки + / ↑ / ↓
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSheet(
@@ -394,7 +368,6 @@ private fun QueueSheet(
     val density = LocalDensity.current
     val rowPx = with(density) { 56.dp.toPx() }
 
-    // Какой трек сейчас тащим и накопленное смещение
     var draggedId by remember { mutableStateOf<Long?>(null) }
     var acc by remember { mutableStateOf(0f) }
 
@@ -418,7 +391,6 @@ private fun QueueSheet(
                         .fillMaxWidth()
                         .height(56.dp)
                         .clickable { onPlayAt(index) }
-                        // Долгий тап + движение = перетаскивание по списку
                         .pointerInput(track.id) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
