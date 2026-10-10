@@ -8,7 +8,9 @@ import com.zed.app.core.data.local.CreditPaymentDao
 import com.zed.app.core.data.local.FavoriteDao
 import com.zed.app.core.data.local.HabitCompletionDao
 import com.zed.app.core.data.local.HabitDao
+import com.zed.app.core.data.local.HabitGoalDao
 import com.zed.app.core.data.local.PlaylistDao
+import com.zed.app.core.data.local.SessionDao
 import com.zed.app.core.data.local.TransactionDao
 import com.zed.app.core.data.local.ZedDatabase
 import com.zed.app.core.data.repository.CategoryRepositoryImpl
@@ -63,6 +65,12 @@ object DatabaseModule {
 
     @Provides
     fun providePlaylistDao(db: ZedDatabase): PlaylistDao = db.playlistDao()
+
+    @Provides
+    fun provideSessionDao(db: ZedDatabase): SessionDao = db.sessionDao()
+
+    @Provides
+    fun provideHabitGoalDao(db: ZedDatabase): HabitGoalDao = db.habitGoalDao()
 }
 
 @Module
