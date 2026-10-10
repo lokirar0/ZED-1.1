@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -62,13 +63,13 @@ fun CreditsScreen(
     val colors = LocalZedColors.current
     val snackbarHostState = remember { SnackbarHostState() }
     val deletedText = stringResource(R.string.credits_deleted)
+    val undoText = stringResource(R.string.undo)
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ZedTopBar(title = stringResource(R.string.tab_credits), onSettingsClick = onOpenSettings)
 
             if (state.loaded && state.credits.isEmpty()) {
-                // Пустое состояние
                 Column(
                     Modifier.fillMaxSize().padding(ZedSpacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -93,16 +94,20 @@ fun CreditsScreen(
                     contentPadding = PaddingValues(ZedSpacing.lg),
                     verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
                 ) {
-                    // Нагрузка в месяц
-                    item {
-                        BurdenCard(burdenText = state.burdenText, activeCount = state.activeCount)
-                    }
+                    item { BurdenCard(burdenText = state.burdenText, activeCount = state.activeCount) }
                     items(state.credits, key = { it.id }) { item ->
                         val dismissState = rememberSwipeToDismissBoxState()
+                        // Свайп = удаление со снимком + snackbar с ОТМЕНОЙ
                         LaunchedEffect(dismissState.currentValue) {
                             if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                viewModel.delete(item.id)
-                                snackbarHostState.showSnackbar(deletedText)
+                                viewModel.deleteWithSnapshot(item.id)
+                                val result = snackbarHostState.showSnackbar(
+                                    message = deletedText,
+                                    actionLabel = undoText
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.restoreLast()
+                                }
                             }
                         }
                         SwipeToDismissBox(
@@ -140,7 +145,6 @@ fun CreditsScreen(
     }
 }
 
-// Карточка нагрузки: сумма платежей в месяц + количество активных
 @Composable
 private fun BurdenCard(burdenText: String, activeCount: Int) {
     val colors = LocalZedColors.current
@@ -171,17 +175,12 @@ private fun BurdenCard(burdenText: String, activeCount: Int) {
                     color = colors.textSecondary
                 )
                 Spacer(Modifier.height(ZedSpacing.xs))
-                Text(
-                    text = activeCount.toString(),
-                    style = ZedDataNumber,
-                    color = colors.textPrimary
-                )
+                Text(text = activeCount.toString(), style = ZedDataNumber, color = colors.textPrimary)
             }
         }
     }
 }
 
-// Карточка кредита: название, платёж, день, отсчёт D-N и отметка «оплачено»
 @Composable
 private fun CreditCard(
     item: CreditUiItem,
@@ -190,7 +189,6 @@ private fun CreditCard(
 ) {
     val colors = LocalZedColors.current
 
-    // Отсчёт через строковые ресурсы (локализация)
     val countdown = when {
         item.paidThisMonth -> stringResource(R.string.credits_paid)
         item.days < 0 -> stringResource(R.string.credits_overdue)
@@ -222,11 +220,7 @@ private fun CreditCard(
                     color = colors.textPrimary
                 )
                 Spacer(Modifier.height(ZedSpacing.xs))
-                Text(
-                    text = item.monthlyText,
-                    style = ZedDataNumber,
-                    color = colors.textSecondary
-                )
+                Text(text = item.monthlyText, style = ZedDataNumber, color = colors.textSecondary)
                 Spacer(Modifier.height(ZedSpacing.xs))
                 Text(
                     text = stringResource(R.string.credits_payday, item.payDay),
@@ -236,11 +230,7 @@ private fun CreditCard(
             }
             Spacer(Modifier.width(ZedSpacing.md))
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = countdown,
-                    style = ZedDataNumber,
-                    color = countdownColor
-                )
+                Text(text = countdown, style = ZedDataNumber, color = countdownColor)
                 Spacer(Modifier.height(ZedSpacing.sm))
                 PaidBox(paid = item.paidThisMonth) { onTogglePaid(!item.paidThisMonth) }
             }
@@ -248,7 +238,6 @@ private fun CreditCard(
     }
 }
 
-// Квадрат отметки «оплачено»: пусто = обводка, отмечено = зелёная заливка + галка
 @Composable
 private fun PaidBox(paid: Boolean, onClick: () -> Unit) {
     val colors = LocalZedColors.current
