@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import androidx.lifecycle.SavedStateHandle
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,6 +43,7 @@ data class PlayerUiState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    // Очередь = вся библиотека (или список плейлиста), порядок меняется пользователем
     val queue: List<AudioTrack> = emptyList(),
     val queueIndex: Int = 0,
     val favoriteIds: Set<Long> = emptySet(),
@@ -59,6 +61,7 @@ class PlayerViewModel @Inject constructor(
     private val playerRepository: PlayerRepository,
     private val settingsRepository: SettingsRepository,
     private val effectsManager: AudioEffectsManager,
+    savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -68,10 +71,13 @@ class PlayerViewModel @Inject constructor(
     private var controller: MediaController? = null
     private var tickerJob: Job? = null
 
+    // Трек, который нужно включить после загрузки (приход из поиска: ?play=id)
+    private var pendingPlayId: Long = savedStateHandle.get<Long>("play") ?: -1L
+
     init {
         viewModelScope.launch { refresh() }
 
-        // ВОССТАНОВЛЕНИЕ FX: DataStore — источник правды (не сбрасывается между вкладками)
+        // Восстановление FX из DataStore
         viewModelScope.launch {
             val s = settingsRepository.settings.first()
             effectsManager.setReverbLevel(s.fxReverb)
@@ -102,33 +108,62 @@ class PlayerViewModel @Inject constructor(
                     c.repeatMode = s.repeatMode.toPlayerRepeat()
                     _state.update { it.copy(shuffle = s.shuffleEnabled, repeatMode = s.repeatMode) }
                 }
+                // Если пришли из поиска с конкретным треком — включаем его
+                if (pendingPlayId != -1L) {
+                    val id = pendingPlayId
+                    pendingPlayId = -1L
+                    playTrackById(id)
+                }
             }
         }, ContextCompat.getMainExecutor(context))
     }
 
-    // --- Аудиореактивность для оверлея: читаем напрямую из процессора,
-    //     без StateFlow — ноль аллокаций и ноль лишних инвалидаций ---
+    // --- Аудиореактивность для оверлея ---
     fun audioLevel(): Float = effectsManager.processor.level
     fun audioBass(): Float = effectsManager.processor.bass
 
-    // --- Воспроизведение ---
+    // --- Сканирование и очередь ---
 
+    // Очередь = ВСЯ библиотека сразу; порядок сохраняем, если набор файлов не менялся
     fun refresh() {
         viewModelScope.launch {
             val list = scanner.scan()
-            _state.update { it.copy(tracks = list, loaded = true) }
+            _state.update { st ->
+                val sameSet = st.queue.map { it.id }.toSet() == list.map { it.id }.toSet()
+                st.copy(
+                    tracks = list,
+                    loaded = true,
+                    queue = if (st.queue.isEmpty() || !sameSet) list else st.queue
+                )
+            }
         }
     }
 
-    fun playTrack(index: Int) = playQueue(_state.value.tracks, index)
+    // Воспроизвести конкретный трек по id (поиск, очереди): очередь = вся библиотека
+    fun playTrackById(id: Long) {
+        val st = _state.value
+        val queue = if (st.queue.isNotEmpty()) st.queue else st.tracks
+        val idx = queue.indexOfFirst { it.id == id }
+        if (idx < 0) return
+        _state.update { it.copy(queue = queue) }
+        pushQueueToPlayer()
+        playAt(idx)
+    }
 
+    // Тап по треку в «Все треки»: очередь = библиотека, старт с выбранного
+    fun playTrack(index: Int) {
+        _state.update { it.copy(queue = it.tracks) }
+        pushQueueToPlayer()
+        playAt(index)
+    }
+
+    // Плейлисты и избранное: очередь = их список
     fun playQueue(list: List<AudioTrack>, startIndex: Int) {
         val c = controller ?: return
         if (list.isEmpty()) return
-        c.setMediaItems(list.map { it.toMediaItem() }, startIndex, 0L)
-        c.prepare()
-        c.play()
-        _state.update { it.copy(queue = list, queueIndex = startIndex) }
+        _state.update { it.copy(queue = list) }
+        pushQueueToPlayer()
+        playAt(startIndex)
     }
 
     fun playAt(index: Int) {
@@ -137,6 +172,59 @@ class PlayerViewModel @Inject constructor(
         c.play()
         _state.update { it.copy(queueIndex = index) }
     }
+
+    // --- Управление очередью ---
+
+    // Сдвинуть трек на steps позиций (кнопки вверх/вниз и перетаскивание)
+    fun moveBySteps(trackId: Long, steps: Int) {
+        val st = _state.value
+        val from = st.queue.indexOfFirst { it.id == trackId }
+        if (from < 0) return
+        val to = (from + steps).coerceIn(0, st.queue.size - 1)
+        if (to == from) return
+        reorder(from, to)
+    }
+
+    // «Играть следующей»: поставить трек сразу после текущего
+    fun playNextById(trackId: Long) {
+        val st = _state.value
+        val from = st.queue.indexOfFirst { it.id == trackId }
+        if (from < 0) return
+        val curId = st.queue.getOrNull(st.queueIndex)?.id
+        val q = st.queue.toMutableList()
+        val item = q.removeAt(from)
+        val curNow = q.indexOfFirst { it.id == curId }
+        q.add(curNow + 1, item)
+        applyQueue(q, curId)
+    }
+
+    private fun reorder(from: Int, to: Int) {
+        val st = _state.value
+        val curId = st.queue.getOrNull(st.queueIndex)?.id
+        val q = st.queue.toMutableList()
+        val item = q.removeAt(from)
+        q.add(to, item)
+        applyQueue(q, curId)
+    }
+
+    private fun applyQueue(q: List<AudioTrack>, curId: Long?) {
+        val newIdx = curId?.let { id -> q.indexOfFirst { it.id == id } } ?: 0
+        _state.update { it.copy(queue = q, queueIndex = newIdx.coerceAtLeast(0)) }
+        pushQueueToPlayer()
+    }
+
+    // Перезаливаем таймлайн плеера текущим порядком, сохраняя позицию воспроизведения
+    private fun pushQueueToPlayer() {
+        val c = controller ?: return
+        val st = _state.value
+        c.setMediaItems(
+            st.queue.map { it.toMediaItem() },
+            st.queueIndex,
+            c.currentPosition.coerceAtLeast(0L)
+        )
+    }
+
+    // --- Управление воспроизведением ---
 
     fun togglePlayPause() {
         val c = controller ?: return
@@ -192,7 +280,7 @@ class PlayerViewModel @Inject constructor(
         if (list.isNotEmpty()) playQueue(list, 0)
     }
 
-    // --- Эффекты: каждое изменение сразу в звук И в DataStore ---
+    // --- Эффекты ---
 
     fun setSpeed(speed: Float) {
         val v = speed.coerceIn(0.5f, 1.5f)
@@ -229,8 +317,6 @@ class PlayerViewModel @Inject constructor(
         sendSpeed(1f)
         persistFx()
     }
-
-    fun startSleepTimer(minutes: Int) = effectsManager.startSleepTimer(minutes)
 
     private fun persistFx() {
         val s = _state.value
@@ -287,7 +373,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // Тикер позиции: 2 раза в секунду и ТОЛЬКО во время воспроизведения
     private fun startStopTicker(playing: Boolean) {
         if (playing && tickerJob == null) {
             tickerJob = viewModelScope.launch {
