@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings as AndroidSettings // алиас: не конфликтуем с com.zed.app.core.settings.Settings
+import android.provider.Settings as AndroidSettings
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -25,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -32,6 +35,7 @@ import com.zed.app.core.settings.Settings
 import com.zed.app.core.settings.SettingsRepository
 import com.zed.app.core.settings.ThemeMode
 import com.zed.app.core.settings.applyAppLocale
+import com.zed.app.core.widgets.ZedWidgetRefresher
 import com.zed.app.navigation.ZedNavHost
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedBlack
@@ -41,7 +45,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// AppCompatActivity нужна для AppCompatDelegate.setApplicationLocales (переключатель языка)
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
@@ -52,17 +55,19 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        setupShortcuts()
 
-        // Восстанавливаем сохранённый язык до отрисовки контента
         lifecycleScope.launch {
             applyAppLocale(settingsRepository.settings.first().language)
         }
+
+        // Действие из шортката иконки (долгое нажатие на иконку ZED)
+        val startAction = intent?.getStringExtra("zed_action")
 
         setContent {
             val viewModel: MainViewModel = hiltViewModel()
             val settings by viewModel.settings.collectAsStateWithLifecycle()
 
-            // Чёрный экран-заглушка, пока DataStore не отдал настройки
             if (settings == null) {
                 Box(Modifier.fillMaxSize().background(ZedBlack))
             } else {
@@ -74,24 +79,51 @@ class MainActivity : AppCompatActivity() {
                     ThemeMode.DARK -> true
                 }
                 ZedTheme(darkTheme = dark) {
-                    // Запрос точных будильников (без них напоминания откладываются OEM)
                     ExactAlarmPrompt()
                     ZedNavHost(
-                        startDestination = if (s.onboardingCompleted) "habits" else "onboarding"
+                        startDestination = if (s.onboardingCompleted) "habits" else "onboarding",
+                        startAction = startAction
                     )
                 }
             }
         }
     }
 
-    // Вернулись из системных настроек / свернули-развернули → переставляем будильники
+    // Уходим в фон / на домашний экран → виджеты получают свежие данные
+    override fun onPause() {
+        super.onPause()
+        ZedWidgetRefresher.update(this)
+    }
+
     override fun onResume() {
         super.onResume()
         vm.ensureSchedules()
     }
+
+    // Шорткаты на иконке приложения (долгое нажатие на иконку ZED в лаунчере)
+    private fun setupShortcuts() {
+        val shortcuts = listOf(
+            shortcut("add_expense", R.string.shortcut_add_expense, R.drawable.sc_add, "finance_editor"),
+            shortcut("calendar", R.string.shortcut_calendar, R.drawable.sc_calendar, "finance_calendar"),
+            shortcut("stats", R.string.shortcut_stats, R.drawable.sc_stats, "habits_stats"),
+            shortcut("player", R.string.shortcut_player, R.drawable.sc_player, "player_screen")
+        )
+        ShortcutManagerCompat.setDynamicShortcuts(this, shortcuts)
+    }
+
+    private fun shortcut(id: String, labelRes: Int, iconRes: Int, action: String): ShortcutInfoCompat =
+        ShortcutInfoCompat.Builder(this, id)
+            .setShortLabel(getString(labelRes))
+            .setIcon(IconCompat.createWithResource(this, iconRes))
+            .setIntent(
+                Intent(this, MainActivity::class.java)
+                    .setAction(Intent.ACTION_VIEW)
+                    .putExtra("zed_action", action)
+            )
+            .build()
 }
 
-// Диалог: разрешить точные будильники (Android 12+; на 14+ после переустановки запрещены)
+// Диалог разрешения точных будильников
 @Composable
 private fun ExactAlarmPrompt() {
     val context = LocalContext.current
@@ -106,12 +138,8 @@ private fun ExactAlarmPrompt() {
         AlertDialog(
             onDismissRequest = { show = false },
             containerColor = colors.surface,
-            title = {
-                Text(stringResource(R.string.exact_alarm_title), color = colors.textDisplay)
-            },
-            text = {
-                Text(stringResource(R.string.exact_alarm_body), color = colors.textSecondary)
-            },
+            title = { Text(stringResource(R.string.exact_alarm_title), color = colors.textDisplay) },
+            text = { Text(stringResource(R.string.exact_alarm_body), color = colors.textSecondary) },
             confirmButton = {
                 TextButton(onClick = {
                     show = false
@@ -123,7 +151,6 @@ private fun ExactAlarmPrompt() {
                             )
                         )
                     }.onFailure {
-                        // Fallback: карточка приложения в настройках
                         runCatching {
                             context.startActivity(
                                 Intent(
@@ -134,18 +161,12 @@ private fun ExactAlarmPrompt() {
                         }
                     }
                 }) {
-                    Text(
-                        stringResource(R.string.exact_alarm_grant),
-                        color = colors.accent
-                    )
+                    Text(stringResource(R.string.exact_alarm_grant), color = colors.accent)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { show = false }) {
-                    Text(
-                        stringResource(R.string.backup_clear_cancel),
-                        color = colors.textSecondary
-                    )
+                    Text(stringResource(R.string.backup_clear_cancel), color = colors.textSecondary)
                 }
             }
         )
