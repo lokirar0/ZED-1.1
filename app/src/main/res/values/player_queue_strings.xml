@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_queue_hint">Tap — play · Hold and drag — reorder · + — play next</string>
+</resources>
