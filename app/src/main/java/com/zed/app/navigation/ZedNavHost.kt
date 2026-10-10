@@ -155,7 +155,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Привычки + редактор + статистика
+                // Привычки
                 composable(Screen.Habits.route) {
                     HabitsScreen(
                         onOpenSettings = { navController.navigate("settings") },
@@ -179,7 +179,7 @@ fun ZedNavHost(startDestination: String) {
                     HabitStatsScreen(onBack = { navController.popBackStack() })
                 }
 
-                // Финансы: список + календарь + редактор с датой/типом
+                // Финансы
                 composable(Screen.Finance.route) {
                     FinanceScreen(
                         onOpenSettings = { navController.navigate("settings") },
@@ -237,8 +237,14 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Плеер
-                composable("player_screen") {
+                // Плеер: опциональный аргумент play = id трека из поиска
+                composable(
+                    route = "player_screen?play={play}",
+                    arguments = listOf(navArgument("play") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    })
+                ) {
                     PlayerScreen(
                         onBack = { navController.popBackStack() },
                         onOpenSettings = { navController.navigate("settings") },
@@ -267,7 +273,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Поиск
+                // Поиск: музыка играет по тапу
                 composable("search") {
                     SearchScreen(
                         onBack = { navController.popBackStack() },
@@ -283,6 +289,10 @@ fun ZedNavHost(startDestination: String) {
                                     restoreState = true
                                 }
                             }
+                        },
+                        onPlayTrack = { id ->
+                            // Открываем плеер с командой играть конкретный трек
+                            navController.navigate("player_screen?play=$id")
                         }
                     )
                 }
