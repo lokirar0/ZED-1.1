@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Годовой отчёт (Wrapped) -->
+    <string name="report_title">YEAR REPORT</string>
+    <string name="report_marks">MARKS</string>
+    <string name="report_best_streak">BEST STREAK</string>
+    <string name="report_best_day">BEST DAY</string>
+    <string name="report_expense">SPENT</string>
+    <string name="report_income">EARNED</string>
+    <string name="report_top_cat">TOP CATEGORY</string>
+    <string name="report_pricey_month">BIGGEST MONTH</string>
+    <string name="report_credits">CREDITS PAID</string>
+    <string name="report_liked">LIKED TRACKS</string>
+    <string name="report_playlists">PLAYLISTS</string>
+
+    <!-- Шорткаты на иконке приложения -->
+    <string name="shortcut_add_expense">Add expense</string>
+    <string name="shortcut_player">Player</string>
+    <string name="shortcut_calendar">Calendar</string>
+    <string name="shortcut_stats">Statistics</string>
+</resources>
