@@ -8,8 +8,7 @@ interface TransactionRepository {
     suspend fun insert(transaction: Transaction): Long
     suspend fun delete(id: Int)
 
-    // Синхронизация авто-списания: paid=true → создать транзакцию,
-    // paid=false → удалить связанную авто-транзакцию
+    // Синхронизация авто-списания платежа по кредиту
     suspend fun syncCreditPayment(
         creditId: Int,
         creditTitle: String,
@@ -18,4 +17,7 @@ interface TransactionRepository {
         yearMonth: String,
         paid: Boolean
     )
+
+    // Создаёт недостающие месячные копии recurring-шаблонов (по текущий месяц)
+    suspend fun materializeRecurring()
 }
