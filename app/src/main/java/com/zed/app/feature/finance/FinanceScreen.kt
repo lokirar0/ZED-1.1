@@ -31,12 +31,12 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -78,6 +78,7 @@ fun FinanceScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val deletedText = stringResource(R.string.finance_deleted)
+    val undoText = stringResource(R.string.undo)
     val exportedText = stringResource(R.string.finance_exported)
     val addedText = stringResource(R.string.finance_added)
     var showQuickSheet by remember { mutableStateOf(false) }
@@ -146,10 +147,17 @@ fun FinanceScreen(
                     }
                     items(state.transactions, key = { it.id }) { item ->
                         val dismissState = rememberSwipeToDismissBoxState()
+                        // Свайп = удаление со снимком + snackbar с ОТМЕНОЙ
                         LaunchedEffect(dismissState.currentValue) {
                             if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                viewModel.delete(item.id)
-                                snackbarHostState.showSnackbar(deletedText)
+                                viewModel.deleteWithSnapshot(item.id)
+                                val result = snackbarHostState.showSnackbar(
+                                    message = deletedText,
+                                    actionLabel = undoText
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.restoreLast()
+                                }
                             }
                         }
                         SwipeToDismissBox(
@@ -167,9 +175,7 @@ fun FinanceScreen(
             }
         }
 
-        // Кнопка «+»: тап = редактор, ДОЛГИЙ ТАП = Quick-Add.
-        // Свой Box вместо FloatingActionButton: внутренний onClick FAB
-        // конфликтовал с combinedClickable и проглатывал все нажатия.
+        // Кнопка «+»: тап = редактор, ДОЛГИЙ ТАП = Quick-Add
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -244,7 +250,6 @@ fun FinanceScreen(
     }
 }
 
-// Карточка баланса + прогноз на конец месяца
 @Composable
 private fun BalanceCard(summary: MonthSummaryUi) {
     val colors = LocalZedColors.current
@@ -292,7 +297,6 @@ private fun BalanceCard(summary: MonthSummaryUi) {
     }
 }
 
-// Мини-календарь месяца
 @Composable
 private fun CalendarCard(
     monthLabel: String,
@@ -426,25 +430,4 @@ private fun TransactionRow(item: TransactionUiItem) {
                         style = MaterialTheme.typography.bodyLarge,
                         color = colors.textPrimary,
                         maxLines = 1,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (item.isRecurring) {
-                        Spacer(Modifier.width(ZedSpacing.xs))
-                        Icon(Icons.Outlined.Repeat, null, tint = colors.accent, modifier = Modifier.size(14.dp))
-                    }
-                }
-                Spacer(Modifier.height(ZedSpacing.xs))
-                Text(
-                    text = if (item.note.isBlank()) item.dateLabel else "${item.dateLabel} · ${item.note}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary
-                )
-            }
-            Text(
-                text = (if (item.isExpense) "- " else "+ ") + item.amountText,
-                style = ZedDataNumber,
-                color = if (item.isExpense) colors.accent else colors.textPrimary
-            )
-        }
-    }
-}
+                        modifier
