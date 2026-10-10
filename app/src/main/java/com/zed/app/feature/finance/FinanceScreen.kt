@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zed.app.R
+import com.zed.app.core.domain.util.MoneyFormatter
 import com.zed.app.ui.components.ZedTopBar
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedDataNumber
@@ -166,16 +167,21 @@ fun FinanceScreen(
             }
         }
 
-        // FAB: тап = редактор, ДОЛГИЙ ТАП = Quick-Add шаблоны
+        // FAB: тап = редактор, ДОЛГИЙ ТАП = Quick-Add.
+        // ВАЖНО: combinedClickable требует onClick без дефолта, поэтому
+        // оба обработчика живут в модификаторе, а не в параметре FAB.
         FloatingActionButton(
-            onClick = onOpenEditor,
+            onClick = { },
             shape = RoundedCornerShape(ZedRadius.md),
             containerColor = colors.accent,
             contentColor = Color.White,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(ZedSpacing.xl)
-                .combinedClickable(onLongClick = { showQuickSheet = true })
+                .combinedClickable(
+                    onClick = onOpenEditor,
+                    onLongClick = { showQuickSheet = true }
+                )
         ) {
             Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.finance_add))
         }
@@ -211,7 +217,7 @@ fun FinanceScreen(
                         Text(q.label, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary, maxLines = 1)
                         Text("×${q.uses}", style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
                     }
-                    Text(q.amountText(), style = ZedDataNumber, color = colors.accent)
+                    Text(MoneyFormatter.format(q.amountMinor), style = ZedDataNumber, color = colors.accent)
                 }
             }
             Row(
@@ -233,10 +239,6 @@ fun FinanceScreen(
         }
     }
 }
-
-// Сумма шаблона через MoneyFormatter (локально, без VM)
-private fun QuickTx.amountText(): String =
-    com.zed.app.core.domain.util.MoneyFormatter.format(amountMinor)
 
 // Карточка баланса + прогноз на конец месяца
 @Composable
@@ -272,7 +274,6 @@ private fun BalanceCard(summary: MonthSummaryUi) {
                 }
             }
             Spacer(Modifier.height(ZedSpacing.md))
-            // Прогноз: красным, если к концу месяца уйдём в минус
             Text(
                 text = stringResource(R.string.finance_forecast, summary.forecastText),
                 style = MaterialTheme.typography.labelMedium,
@@ -423,7 +424,6 @@ private fun TransactionRow(item: TransactionUiItem) {
                         maxLines = 1,
                         modifier = Modifier.weight(1f, fill = false)
                     )
-                    // Маркер повторяющейся операции
                     if (item.isRecurring) {
                         Spacer(Modifier.width(ZedSpacing.xs))
                         Icon(Icons.Outlined.Repeat, null, tint = colors.accent, modifier = Modifier.size(14.dp))
