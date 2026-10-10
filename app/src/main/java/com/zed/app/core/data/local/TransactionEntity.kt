@@ -8,17 +8,20 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 // Операция: доход или расход.
-// categoryId ссылается на categories; creditId + yearMonth — только у авто-списаний.
+// recurring = шаблон «повторять ежемесячно» (подписки, аренда, ЗП).
+// sourceId = id шаблона у авто-созданных копий (копии не плодят дубли).
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val type: String,          // TransactionType.name
-    val amountMinor: Long,     // сумма в копейках (без float-ошибок)
+    val amountMinor: Long,
     val categoryId: Int,
     val note: String = "",
     val dateMillis: Long = System.currentTimeMillis(),
     val creditId: Int? = null,
-    val yearMonth: String? = null
+    val yearMonth: String? = null,
+    val recurring: Boolean = false,
+    val sourceId: Int? = null
 )
 
 @Dao
@@ -39,7 +42,7 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE creditId = :creditId AND yearMonth = :yearMonth")
     suspend fun deleteCreditPayment(creditId: Int, yearMonth: String)
 
-    // Бэкап
+    // Бэкап + материализация повторений
     @Query("SELECT * FROM transactions")
     suspend fun getAll(): List<TransactionEntity>
 
