@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.glance.ColorProvider
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.actionStartActivity
@@ -14,6 +13,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
+import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
@@ -31,7 +31,6 @@ import com.zed.app.core.domain.model.TransactionType
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.domain.util.MoneyFormatter
-import com.zed.app.core.domain.util.StreakCalculator
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -40,12 +39,13 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Токены виджетов:.surface-подложка и акцент (True Black для AMOLED)
+// Токены виджетов: подложка surface и акцент (True Black для AMOLED)
 private val WSurface = ColorProvider(Color(0xFF111111), Color(0xFF111111))
 private val WAccent = ColorProvider(Color(0xFFD71921), Color(0xFFD71921))
 private val WText = ColorProvider(Color(0xFFE8E8E8), Color(0xFFE8E8E8))
@@ -71,10 +71,7 @@ class TodayWidget : GlanceAppWidget() {
         val doneIds = completions.filter { it.day == today }.map { it.habitId }.toSet()
         val done = habits.count { it.id in doneIds }
         val total = habits.size
-        val week = (6 downTo 0).map { off ->
-            val day = today - off
-            completions.any { it.day == day }
-        }
+        val week = (6 downTo 0).map { off -> completions.any { it.day == today - off } }
 
         content {
             Column(
@@ -84,26 +81,23 @@ class TodayWidget : GlanceAppWidget() {
                     .padding(12.dp)
                     .clickable(actionStartActivity<MainActivity>())
             ) {
-                Row(modifier = GlanceModifier.fillMaxWidth()) {
-                    Text(
-                        text = "ZED · TODAY",
-                        style = TextStyle(color = WGray, textSize = 10.sp, fontWeight = FontWeight.Bold)
-                    )
-                }
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Text(
-                        text = "$done/$total",
-                        style = TextStyle(color = WText, textSize = 28.sp, fontWeight = FontWeight.Bold)
-                    )
-                }
+                Text(
+                    text = "ZED · TODAY",
+                    style = TextStyle(color = WGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    text = "$done/$total",
+                    modifier = GlanceModifier.padding(top = 4.dp),
+                    style = TextStyle(color = WText, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                )
                 Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
                     week.forEach { flag ->
                         Box(
                             modifier = GlanceModifier
-                                .size(8.dp)
+                                .size(10.dp)
                                 .padding(1.dp)
                                 .background(if (flag) WAccent else WDim)
-                        )
+                        ) { }
                     }
                 }
             }
@@ -144,36 +138,35 @@ class BudgetWidget : GlanceAppWidget() {
             ) {
                 Text(
                     text = "ZED · BUDGET",
-                    style = TextStyle(color = WGray, textSize = 10.sp, fontWeight = FontWeight.Bold)
+                    style = TextStyle(color = WGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 )
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Text(
-                        text = (if (balance < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(balance)),
-                        style = TextStyle(
-                            color = if (balance < 0) WAccent else WText,
-                            textSize = 24.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
                 Text(
-                    text = "FORECAST " + (if (forecast < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(forecast)),
+                    text = (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance)),
+                    modifier = GlanceModifier.padding(top = 4.dp),
+                    style = TextStyle(
+                        color = if (balance < 0) WAccent else WText,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "FORECAST " + (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast)),
+                    modifier = GlanceModifier.padding(top = 2.dp),
                     style = TextStyle(
                         color = if (forecast < 0) WAccent else WGray,
-                        textSize = 10.sp
-                    ),
-                    modifier = GlanceModifier.padding(top = 2.dp)
+                        fontSize = 10.sp
+                    )
                 )
                 // Полоса расхода: 16 квадратных сегментов
                 Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
                     for (i in 0 until 16) {
                         Box(
                             modifier = GlanceModifier
-                                .width(8.dp)
-                                .height(6.dp)
+                                .width(10.dp)
+                                .height(8.dp)
                                 .padding(1.dp)
                                 .background(if (i < filled) WAccent else WDim)
-                        )
+                        ) { }
                     }
                 }
             }
@@ -187,7 +180,7 @@ class BudgetWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ================= РЕФРЕШЕР =================
 // Вызывается при уходе приложения в фон (MainActivity.onPause):
-// виджеты показывают свежие данные сразу, как только пользователь вышел на домашний экран.
+// виджеты получают свежие данные сразу, как пользователь вышел на домашний экран.
 object ZedWidgetRefresher {
     fun update(context: Context) {
         CoroutineScope(Dispatchers.Default).launch {
