@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analytics_title">ACTIVITY &amp; ANALYTICS</string>
+    <string name="act_section">THIS MONTH</string>
+    <string name="act_days_format">%1$d / %2$d days</string>
+    <string name="act_time">TIME</string>
+    <string name="act_avg">AVG SESSION</string>
+    <string name="act_launches">LAUNCHES</string>
+    <string name="fin_compare">MONTH COMPARE</string>
+    <string name="cmp_cur">this month</string>
+    <string name="cmp_prev">last month</string>
+    <string name="cmp_more">Spent %1$d%% more than last month</string>
+    <string name="cmp_less">Spent %1$d%% less than last month</string>
+    <string name="cmp_same">Spending at the same level</string>
+    <string name="cmp_no_data">Not enough data for comparison</string>
+    <string name="goals_title">HABIT GOALS</string>
+    <string name="goals_hint">Target days out of 30</string>
+    <string name="goals_progress">%1$d / %2$d done</string>
+</resources>
