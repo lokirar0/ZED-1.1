@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,15 +20,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.RepeatOne
@@ -36,7 +43,6 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,8 +62,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,14 +81,14 @@ import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-private enum class Sheet { NONE, QUEUE, FX, MORE, SLEEP, LYRICS }
+private enum class Sheet { NONE, QUEUE, FX, MORE, LYRICS }
 
 private fun audioPermission(): String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
-// Полноэкранный плеер в стиле Nothing OS: крупная обложка + dot-matrix оверлей,
-// чистый слайдер, 5 кнопок управления, нижняя панель, bottom-sheet'ы
+// Полноэкранный плеер: обложка + dot-matrix оверлей, слайдер, 5 кнопок,
+// нижняя панель (⚙ | EQ | 📝 | ☰ | ) — таймер сна убран, эквалайзер на его месте
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -120,7 +128,7 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Верхний бар: [←] ПЛЕЕР [🔍] [⚙]
+        // Верхний бар: [←] ПЛЕЕР [🔍] []
         Row(
             Modifier
                 .fillMaxWidth()
@@ -146,7 +154,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Крупная обложка ~62% ширины + dot-matrix оверлей поверх
+        // Крупная обложка + dot-matrix оверлей
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -162,8 +170,6 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(16.dp))
             )
-            // Dot-matrix оверлей поверх обложки (тот же пакет, импорт не нужен).
-            // Долгий тап по обложке переключает 5 режимов: RING → EQ → BREATH → WAVE → GLYPH
             DotMatrixOverlay(Modifier.matchParentSize())
         }
 
@@ -204,7 +210,10 @@ fun PlayerScreen(
                     }
                 }
             }
-            IconButton(onClick = { viewModel.toggleFavorite() }) {
+            IconButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.toggleFavorite()
+            }) {
                 Icon(
                     if (state.current?.id in state.favoriteIds) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
                     null,
@@ -215,7 +224,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Чистый слайдер: красная линия, белый ползунок
+        // Слайдер прогресса
         Slider(
             value = state.positionMs.toFloat().coerceIn(0f, state.durationMs.toFloat().coerceAtLeast(1f)),
             onValueChange = { viewModel.seekTo(it.toLong()) },
@@ -235,7 +244,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Ряд управления: Shuffle | Prev | PLAY 64dp | Next | Repeat
+        // Ряд управления: Shuffle | Prev | PLAY | Next | Repeat
         Row(
             Modifier
                 .fillMaxWidth()
@@ -254,13 +263,19 @@ fun PlayerScreen(
             Icon(
                 Icons.Outlined.SkipPrevious, null,
                 tint = colors.textPrimary,
-                modifier = Modifier.size(32.dp).clickable(onClick = viewModel::previous)
+                modifier = Modifier.size(32.dp).clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.previous()
+                }
             )
             Box(
                 Modifier
                     .size(64.dp)
                     .background(colors.accent, RoundedCornerShape(16.dp))
-                    .clickable(onClick = viewModel::togglePlayPause),
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.togglePlayPause()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -273,7 +288,10 @@ fun PlayerScreen(
             Icon(
                 Icons.Outlined.SkipNext, null,
                 tint = colors.textPrimary,
-                modifier = Modifier.size(32.dp).clickable(onClick = viewModel::next)
+                modifier = Modifier.size(32.dp).clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.next()
+                }
             )
             Icon(
                 if (state.repeatMode == 1) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat,
@@ -288,7 +306,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(1f))
 
-        // Нижняя панель: ⚙ |  | 📝 | ☰ | 
+        // Нижняя панель: ⚙ | EQ | 📝 |  | ⋮ (таймер сна убран, EQ на его месте)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -297,8 +315,8 @@ fun PlayerScreen(
         ) {
             Icon(Icons.Outlined.Settings, null, tint = colors.textSecondary,
                 modifier = Modifier.size(22.dp).clickable(onClick = onOpenSettings))
-            Icon(Icons.Outlined.Timer, null, tint = colors.textSecondary,
-                modifier = Modifier.size(22.dp).clickable { sheet = Sheet.SLEEP })
+            Icon(Icons.Outlined.GraphicEq, null, tint = colors.textSecondary,
+                modifier = Modifier.size(22.dp).clickable { sheet = Sheet.FX })
             Icon(Icons.Outlined.Notes, null, tint = colors.textSecondary,
                 modifier = Modifier.size(22.dp).clickable { sheet = Sheet.LYRICS })
             Icon(Icons.Outlined.QueueMusic, null, tint = colors.textSecondary,
@@ -321,64 +339,17 @@ fun PlayerScreen(
             onReset = viewModel::resetFx,
             onDismiss = { sheet = Sheet.NONE }
         )
-        Sheet.QUEUE -> ModalBottomSheet(
-            onDismissRequest = { sheet = Sheet.NONE },
-            containerColor = colors.surface
-        ) {
-            SheetTitle(stringResource(R.string.player_queue))
-            if (state.queue.isEmpty()) {
-                Text(
-                    stringResource(R.string.player_queue_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.textSecondary,
-                    modifier = Modifier.padding(ZedSpacing.xl)
-                )
-            } else {
-                state.queue.forEachIndexed { index, track ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.playAt(index); sheet = Sheet.NONE }
-                            .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "%02d".format(index + 1),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (index == state.queueIndex) colors.accent else colors.textDisabled
-                        )
-                        Spacer(Modifier.width(ZedSpacing.md))
-                        Text(
-                            text = if (track.isUnknownTitle) stringResource(R.string.player_unknown_track) else track.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (index == state.queueIndex) colors.accent else colors.textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(ZedSpacing.xl))
-        }
-        Sheet.SLEEP -> ModalBottomSheet(
-            onDismissRequest = { sheet = Sheet.NONE },
-            containerColor = colors.surface
-        ) {
-            SheetTitle(stringResource(R.string.player_sleep))
-            listOf(15, 30, 45, 60).forEach { min ->
-                Text(
-                    text = "$min min",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.textPrimary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.startSleepTimer(min); sheet = Sheet.NONE }
-                        .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.md)
-                )
-            }
-            Spacer(Modifier.height(ZedSpacing.xl))
-        }
+        Sheet.QUEUE -> QueueSheet(
+            queue = state.queue,
+            queueIndex = state.queueIndex,
+            onPlayAt = { i -> viewModel.playAt(i); sheet = Sheet.NONE },
+            onPlayNext = { id ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.playNextById(id)
+            },
+            onMove = { id, steps -> viewModel.moveBySteps(id, steps) },
+            onDismiss = { sheet = Sheet.NONE }
+        )
         Sheet.LYRICS -> ModalBottomSheet(
             onDismissRequest = { sheet = Sheet.NONE },
             containerColor = colors.surface
@@ -404,6 +375,99 @@ fun PlayerScreen(
             Spacer(Modifier.height(ZedSpacing.xl))
         }
         Sheet.NONE -> Unit
+    }
+}
+
+// Очередь = вся библиотека: тап — играть, долгий тап + драг — переместить,
+// кнопки: «следующей» и стрелки вверх/вниз
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QueueSheet(
+    queue: List<AudioTrack>,
+    queueIndex: Int,
+    onPlayAt: (Int) -> Unit,
+    onPlayNext: (Long) -> Unit,
+    onMove: (Long, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalZedColors.current
+    val density = LocalDensity.current
+    val rowPx = with(density) { 56.dp.toPx() }
+
+    // Какой трек сейчас тащим и накопленное смещение
+    var draggedId by remember { mutableStateOf<Long?>(null) }
+    var acc by remember { mutableStateOf(0f) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface
+    ) {
+        SheetTitle(stringResource(R.string.player_queue))
+        Text(
+            text = stringResource(R.string.player_queue_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textDisabled,
+            modifier = Modifier.padding(horizontal = ZedSpacing.xl)
+        )
+        Spacer(Modifier.height(ZedSpacing.sm))
+
+        LazyColumn {
+            itemsIndexed(queue, key = { _, t -> t.id }) { index, track ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .clickable { onPlayAt(index) }
+                        // Долгий тап + движение = перетаскивание по списку
+                        .pointerInput(track.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    draggedId = track.id
+                                    acc = 0f
+                                },
+                                onDragEnd = { draggedId = null; acc = 0f },
+                                onDragCancel = { draggedId = null; acc = 0f }
+                            ) { change, dragAmount ->
+                                change.consume()
+                                acc += dragAmount.y
+                                val steps = (acc / rowPx).toInt()
+                                if (steps != 0 && draggedId != null) {
+                                    onMove(draggedId!!, steps)
+                                    acc -= steps * rowPx
+                                }
+                            }
+                        }
+                        .padding(horizontal = ZedSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "%02d".format(index + 1),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (index == queueIndex) colors.accent else colors.textDisabled,
+                        modifier = Modifier.width(28.dp)
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = if (track.isUnknownTitle) stringResource(R.string.player_unknown_track) else track.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (index == queueIndex) colors.accent else colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = { onPlayNext(track.id) }) {
+                        Icon(Icons.Outlined.PlaylistAdd, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = { onMove(track.id, -1) }) {
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowUp, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = { onMove(track.id, 1) }) {
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowDown, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(ZedSpacing.xl))
     }
 }
 
