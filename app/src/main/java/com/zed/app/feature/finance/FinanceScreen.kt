@@ -167,23 +167,27 @@ fun FinanceScreen(
             }
         }
 
-        // FAB: тап = редактор, ДОЛГИЙ ТАП = Quick-Add.
-        // ВАЖНО: combinedClickable требует onClick без дефолта, поэтому
-        // оба обработчика живут в модификаторе, а не в параметре FAB.
-        FloatingActionButton(
-            onClick = { },
-            shape = RoundedCornerShape(ZedRadius.md),
-            containerColor = colors.accent,
-            contentColor = Color.White,
+        // Кнопка «+»: тап = редактор, ДОЛГИЙ ТАП = Quick-Add.
+        // Свой Box вместо FloatingActionButton: внутренний onClick FAB
+        // конфликтовал с combinedClickable и проглатывал все нажатия.
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(ZedSpacing.xl)
+                .size(56.dp)
+                .background(colors.accent, RoundedCornerShape(ZedRadius.md))
                 .combinedClickable(
                     onClick = onOpenEditor,
                     onLongClick = { showQuickSheet = true }
-                )
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.finance_add))
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = stringResource(R.string.finance_add),
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
