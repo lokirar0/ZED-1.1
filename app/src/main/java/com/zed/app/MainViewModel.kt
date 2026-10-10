@@ -3,6 +3,7 @@ package com.zed.app
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.core.data.repository.ActivityRepository
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.notifications.ReminderScheduler
@@ -10,6 +11,7 @@ import com.zed.app.core.settings.Settings
 import com.zed.app.core.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,7 @@ class MainViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val habitRepository: HabitRepository,
     private val transactionRepository: TransactionRepository,
+    private val activityRepository: ActivityRepository,
     private val settingsRepositoryForSchedule: SettingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -32,8 +35,16 @@ class MainViewModel @Inject constructor(
 
     init {
         ensureSchedules()
-        // Повторяющиеся операции: копии за пропущенные месяцы при каждом старте
         viewModelScope.launch { transactionRepository.materializeRecurring() }
+        // Счётчик запусков для экрана активности
+        viewModelScope.launch { activityRepository.addLaunch(LocalDate.now().toEpochDay()) }
+    }
+
+    // Секунды текущей сессии (приходит из MainActivity.onPause)
+    fun addSession(seconds: Long) {
+        viewModelScope.launch {
+            activityRepository.addSeconds(LocalDate.now().toEpochDay(), seconds)
+        }
     }
 
     // Будильники напоминаний: глобальные + персональные (идемпотентно)
