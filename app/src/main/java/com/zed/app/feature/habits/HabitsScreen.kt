@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -55,8 +56,8 @@ fun HabitsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
     val snackbarHostState = remember { SnackbarHostState() }
-    // Строку получаем ЗДЕСЬ: внутри LaunchedEffect stringResource() вызывать нельзя
     val deletedText = stringResource(R.string.habits_deleted)
+    val undoText = stringResource(R.string.undo)
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -107,7 +108,6 @@ fun HabitsScreen(
             }
 
             if (state.loaded && state.habits.isEmpty()) {
-                // Пустое состояние
                 Column(
                     Modifier.fillMaxSize().padding(ZedSpacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -137,12 +137,19 @@ fun HabitsScreen(
                     verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
                 ) {
                     items(state.habits, key = { it.id }) { item ->
-                        // Свайп в любую сторону = удаление
                         val dismissState = rememberSwipeToDismissBoxState()
+                        // Свайп = удаление со снимком; snackbar держит ОТМЕНУ,
+                        // пока не скрыт или не нажата кнопка
                         LaunchedEffect(dismissState.currentValue) {
                             if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                viewModel.delete(item.id)
-                                snackbarHostState.showSnackbar(deletedText)
+                                viewModel.deleteWithSnapshot(item.id)
+                                val result = snackbarHostState.showSnackbar(
+                                    message = deletedText,
+                                    actionLabel = undoText
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.restoreLast()
+                                }
                             }
                         }
                         SwipeToDismissBox(
@@ -159,7 +166,7 @@ fun HabitsScreen(
                                 HabitCard(
                                     item = item,
                                     onToggle = { viewModel.toggle(item.id) },
-                                    onClick = { onOpenEditor(item.id) } // тап = редактирование
+                                    onClick = { onOpenEditor(item.id) }
                                 )
                             }
                         )
@@ -168,7 +175,6 @@ fun HabitsScreen(
             }
         }
 
-        // FAB: красный квадрат со скруглением 8dp
         FloatingActionButton(
             onClick = { onOpenEditor(-1) },
             shape = RoundedCornerShape(ZedRadius.md),
