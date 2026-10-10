@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +51,7 @@ import com.zed.app.feature.player.PlayerScreen
 import com.zed.app.feature.player.PlaylistsScreen
 import com.zed.app.feature.search.SearchScreen
 import com.zed.app.feature.settings.SettingsScreen
+import com.zed.app.feature.settings.YearReportScreen
 import com.zed.app.ui.components.ZedTopBar
 import com.zed.app.ui.navigation.LocalZedActions
 import com.zed.app.ui.navigation.ZedActions
@@ -67,7 +69,10 @@ sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector)
 }
 
 @Composable
-fun ZedNavHost(startDestination: String) {
+fun ZedNavHost(
+    startDestination: String,
+    startAction: String? = null
+) {
     val navController = rememberNavController()
     val tabs = Screen.tabs()
     val tabRoutes = tabs.map { it.route }
@@ -76,6 +81,16 @@ fun ZedNavHost(startDestination: String) {
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = currentRoute in tabRoutes
     val colors = LocalZedColors.current
+
+    // Действие из шортката иконки: переходим после построения графа
+    LaunchedEffect(startAction) {
+        when (startAction) {
+            "finance_editor" -> navController.navigate("finance_editor")
+            "finance_calendar" -> navController.navigate("finance_calendar")
+            "habits_stats" -> navController.navigate("habits_stats")
+            "player_screen" -> navController.navigate("player_screen")
+        }
+    }
 
     CompositionLocalProvider(
         LocalZedActions provides ZedActions(
@@ -237,7 +252,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Плеер: опциональный аргумент play = id трека из поиска
+                // Плеер
                 composable(
                     route = "player_screen?play={play}",
                     arguments = listOf(navArgument("play") {
@@ -273,7 +288,7 @@ fun ZedNavHost(startDestination: String) {
                     )
                 }
 
-                // Поиск: музыка играет по тапу
+                // Поиск
                 composable("search") {
                     SearchScreen(
                         onBack = { navController.popBackStack() },
@@ -290,16 +305,19 @@ fun ZedNavHost(startDestination: String) {
                                 }
                             }
                         },
-                        onPlayTrack = { id ->
-                            // Открываем плеер с командой играть конкретный трек
-                            navController.navigate("player_screen?play=$id")
-                        }
+                        onPlayTrack = { id -> navController.navigate("player_screen?play=$id") }
                     )
                 }
 
-                // Настройки
+                // Настройки + годовой отчёт
                 composable("settings") {
-                    SettingsScreen(onBack = { navController.popBackStack() })
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenYearReport = { navController.navigate("year_report") }
+                    )
+                }
+                composable("year_report") {
+                    YearReportScreen(onBack = { navController.popBackStack() })
                 }
             }
         }
