@@ -3,7 +3,7 @@ package com.zed.app.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-// v2: habits.reminderTimeMinutes (персональные напоминания)
+// v3: transactions.recurring + transactions.sourceId (повторяющиеся операции)
 @Database(
     entities = [
         HabitEntity::class,
@@ -16,7 +16,7 @@ import androidx.room.RoomDatabase
         PlaylistEntity::class,
         PlaylistTrackEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class ZedDatabase : RoomDatabase() {
