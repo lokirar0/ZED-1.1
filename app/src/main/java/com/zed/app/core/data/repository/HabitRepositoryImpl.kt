@@ -40,7 +40,8 @@ class HabitRepositoryImpl @Inject constructor(
                 title = habit.title,
                 note = habit.note,
                 createdAt = habit.createdAt,
-                reminderTimeMinutes = habit.reminderTimeMinutes
+                reminderTimeMinutes = habit.reminderTimeMinutes,
+                archived = habit.archived
             )
         )
 
@@ -52,17 +53,27 @@ class HabitRepositoryImpl @Inject constructor(
         else completionDao.insert(HabitCompletionEntity(habitId = habitId, day = day))
     }
 
+    // ZED 2.0: идемпотентная отметка — уже отмечено → ничего не делаем
+    override suspend fun complete(habitId: Int, day: Long) {
+        if (completionDao.find(habitId, day) == null) {
+            completionDao.insert(HabitCompletionEntity(habitId = habitId, day = day))
+        }
+    }
+
+    override suspend fun setArchived(habitId: Int, archived: Boolean) =
+        habitDao.setArchived(habitId, archived)
+
     override suspend fun todayPendingCount(): Int {
         val today = LocalDate.now().toEpochDay()
         val doneIds = completionDao.getCompletionsOnce()
             .filter { it.day == today }
             .map { it.habitId }
             .toSet()
-        return habitDao.getHabitsOnce().count { it.id !in doneIds }
+        return habitDao.getHabitsOnce().count { it.id !in doneIds && !it.archived }
     }
 
     private fun HabitEntity.toDomain() =
-        Habit(id, title, note, createdAt, reminderTimeMinutes)
+        Habit(id, title, note, createdAt, reminderTimeMinutes, archived)
 
     private fun HabitCompletionEntity.toDomain() = HabitCompletion(id, habitId, day)
 }

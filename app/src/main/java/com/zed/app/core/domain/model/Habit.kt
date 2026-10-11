@@ -6,7 +6,8 @@ data class Habit(
     val title: String,
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val reminderTimeMinutes: Int? = null // минуты от полуночи, null = выключено
+    val reminderTimeMinutes: Int? = null, // минуты от полуночи, null = выключено
+    val archived: Boolean = false         // ZED 2.0: архив скрыт с главного экрана
 )
 
 data class HabitCompletion(

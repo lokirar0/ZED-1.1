@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,19 +60,24 @@ fun SquareCheckbox(checked: Boolean, onCheckedChange: () -> Unit) {
     }
 }
 
-// Точечная матрица недели: 7 квадратов, заполнен = день выполнен
+// Точечная матрица недели: 7 квадратов, заполнен = день выполнен.
+// ZED 2.0: тап по точке — ретроактивная отметка за этот день (offset = сколько дней назад).
 @Composable
-fun WeekDots(flags: List<Boolean>) {
+fun WeekDots(flags: List<Boolean>, onDayClick: ((offsetBack: Int) -> Unit)? = null) {
     val colors = LocalZedColors.current
     Row(horizontalArrangement = Arrangement.spacedBy(ZedSpacing.xs)) {
-        flags.forEach { done ->
+        flags.forEachIndexed { index, done ->
+            // index 0 = 6 дней назад … index 6 = сегодня
+            val offsetBack = flags.size - 1 - index
             Box(
                 Modifier
                     .size(8.dp)
+                    .padding(2.dp) // увеличиваем область нажатия до ~12dp
                     .then(
                         if (done) Modifier.background(colors.accent)
                         else Modifier.border(1.dp, colors.borderVisible)
                     )
+                    .clickable(enabled = onDayClick != null) { onDayClick?.invoke(offsetBack) }
             )
         }
     }
@@ -81,7 +87,13 @@ fun WeekDots(flags: List<Boolean>) {
 // Жесты не конфликтуют: тап по карточке = редактирование,
 // тап по чекбоксу = отметка (чекбокс поглощает клик), свайп = удаление.
 @Composable
-fun HabitCard(item: HabitUiItem, onToggle: () -> Unit, onClick: () -> Unit) {
+fun HabitCard(
+    item: HabitUiItem,
+    onToggle: () -> Unit,
+    onClick: () -> Unit,
+    onDayClick: ((offsetBack: Int) -> Unit)? = null,
+    onArchive: (() -> Unit)? = null
+) {
     val colors = LocalZedColors.current
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -120,10 +132,28 @@ fun HabitCard(item: HabitUiItem, onToggle: () -> Unit, onClick: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(ZedSpacing.md))
-                WeekDots(item.weekFlags)
+                WeekDots(item.weekFlags, onDayClick = onDayClick)
             }
             Spacer(Modifier.width(ZedSpacing.md))
             SquareCheckbox(checked = item.doneToday, onCheckedChange = onToggle)
+            // ZED 2.0: быстрый архив прямо из карточки
+            if (onArchive != null) {
+                Spacer(Modifier.width(ZedSpacing.sm))
+                Box(
+                    Modifier
+                        .size(24.dp)
+                        .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.sm))
+                        .clickable(onClick = onArchive),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Archive,
+                        contentDescription = stringResource(R.string.habits_archive),
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }

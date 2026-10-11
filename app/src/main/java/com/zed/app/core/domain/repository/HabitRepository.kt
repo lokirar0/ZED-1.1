@@ -14,6 +14,10 @@ interface HabitRepository {
     suspend fun delete(habitId: Int)
     // Переключить отметку за день (нет → поставить, есть → убрать)
     suspend fun toggle(habitId: Int, day: Long)
+    // ZED 2.0: только поставить отметку (идемпотентно, для виджета/быстрой отметки)
+    suspend fun complete(habitId: Int, day: Long)
+    // ZED 2.0: архивирование без удаления истории
+    suspend fun setArchived(habitId: Int, archived: Boolean)
     // Сколько привычек сегодня не отмечено (для уведомления)
     suspend fun todayPendingCount(): Int
 }

@@ -36,7 +36,9 @@ class TransactionRepositoryImpl @Inject constructor(
                 creditId = transaction.creditId,
                 yearMonth = transaction.yearMonth,
                 recurring = transaction.recurring,
-                sourceId = transaction.sourceId
+                sourceId = transaction.sourceId,
+                accountId = transaction.accountId,
+                linkedAccountId = transaction.linkedAccountId
             )
         )
 
@@ -113,6 +115,11 @@ class TransactionRepositoryImpl @Inject constructor(
         if (toInsert.isNotEmpty()) dao.insertAll(toInsert)
     }
 
+    override suspend fun monthTotals(fromMillis: Long, toMillis: Long): Pair<Long, Long> {
+        val t = dao.monthTotals(fromMillis, toMillis)
+        return (t.income ?: 0L) to (t.expense ?: 0L)
+    }
+
     private fun TransactionEntity.toDomain() = Transaction(
         id = id,
         type = runCatching { TransactionType.valueOf(type) }.getOrDefault(TransactionType.EXPENSE),
@@ -123,6 +130,8 @@ class TransactionRepositoryImpl @Inject constructor(
         creditId = creditId,
         yearMonth = yearMonth,
         recurring = recurring,
-        sourceId = sourceId
+        sourceId = sourceId,
+        accountId = accountId,
+        linkedAccountId = linkedAccountId
     )
 }
