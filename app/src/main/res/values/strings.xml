@@ -56,6 +56,7 @@
     <string name="habits_empty_title">NO HABITS YET</string>
     <string name="habits_empty_body">Add your first habit — keep it simple.</string>
     <string name="habits_add">ADD HABIT</string>
+    <string name="habits_archive">Archive habit</string>
     <string name="habits_deleted">Habit deleted</string>
     <string name="editor_title_new">NEW HABIT</string>
     <string name="editor_title_edit">EDIT HABIT</string>

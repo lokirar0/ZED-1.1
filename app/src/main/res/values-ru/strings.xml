@@ -51,6 +51,7 @@
     <string name="habits_empty_title">ПОКА НЕТ ПРИВЫЧЕК</string>
     <string name="habits_empty_body">Добавь первую привычку — начни с простой.</string>
     <string name="habits_add">ДОБАВИТЬ ПРИВЫЧКУ</string>
+    <string name="habits_archive">Архивировать привычку</string>
     <string name="habits_deleted">Привычка удалена</string>
     <string name="editor_title_new">НОВАЯ ПРИВЫЧКА</string>
     <string name="editor_title_edit">ИЗМЕНЕНИЕ ПРИВЫЧКИ</string>
