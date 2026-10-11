@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,7 +24,10 @@ data class Settings(
     val repeatMode: Int = 0,               // плеер: 0=OFF, 1=ONE, 2=ALL
     val fxSpeed: Float = 1f,               // плеер: Slowed 0.5..1.5
     val fxReverb: Int = 0,                 // плеер: Reverb 0..100
-    val fxEq: String = "0.5,0.5,0.5,0.5,0.5" // плеер: 5 полос эквалайзера
+    val fxEq: String = "0.5,0.5,0.5,0.5,0.5", // плеер: 5 полос эквалайзера
+    // --- ZED 2.0 ---
+    val monthlyBudgetMinor: Long = 0L,     // месячный бюджет по расходам (0 = выключен)
+    val currencyCode: String = "RUB"       // валюта отображения сумм
 )
 
 // "0.9,0.75,0.5,0.4,0.35" → список из 5 значений 0..1
@@ -48,7 +52,9 @@ class SettingsRepository @Inject constructor(
             repeatMode = prefs[KEY_REPEAT] ?: 0,
             fxSpeed = prefs[KEY_FX_SPEED] ?: 1f,
             fxReverb = prefs[KEY_FX_REVERB] ?: 0,
-            fxEq = prefs[KEY_FX_EQ] ?: "0.5,0.5,0.5,0.5,0.5"
+            fxEq = prefs[KEY_FX_EQ] ?: "0.5,0.5,0.5,0.5,0.5",
+            monthlyBudgetMinor = prefs[KEY_BUDGET] ?: 0L,
+            currencyCode = prefs[KEY_CURRENCY] ?: "RUB"
         )
     }
 
@@ -68,6 +74,10 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ZED 2.0: месячный бюджет (копейки, 0 = выключен) и валюта отображения
+    suspend fun setMonthlyBudget(minor: Long) { dataStore.edit { it[KEY_BUDGET] = minor } }
+    suspend fun setCurrency(code: String) { dataStore.edit { it[KEY_CURRENCY] = code } }
+
     private companion object {
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
@@ -78,5 +88,7 @@ class SettingsRepository @Inject constructor(
         val KEY_FX_SPEED = floatPreferencesKey("fx_speed")
         val KEY_FX_REVERB = intPreferencesKey("fx_reverb")
         val KEY_FX_EQ = stringPreferencesKey("fx_eq")
+        val KEY_BUDGET = longPreferencesKey("monthly_budget_minor")
+        val KEY_CURRENCY = stringPreferencesKey("currency_code")
     }
 }

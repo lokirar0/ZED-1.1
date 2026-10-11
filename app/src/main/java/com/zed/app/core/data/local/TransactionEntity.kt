@@ -7,9 +7,10 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-// Операция: доход или расход.
+// Операция: доход, расход или перевод между счетами (ZED 2.0).
 // recurring = шаблон «повторять ежемесячно» (подписки, аренда, ЗП).
 // sourceId = id шаблона у авто-созданных копий (копии не плодят дубли).
+// accountId / linkedAccountId — счета (для TRANSFER: откуда → куда).
 @Entity(tableName = "transactions")
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -21,7 +22,9 @@ data class TransactionEntity(
     val creditId: Int? = null,
     val yearMonth: String? = null,
     val recurring: Boolean = false,
-    val sourceId: Int? = null
+    val sourceId: Int? = null,
+    val accountId: Int? = null,
+    val linkedAccountId: Int? = null
 )
 
 @Dao
@@ -42,6 +45,14 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE creditId = :creditId AND yearMonth = :yearMonth")
     suspend fun deleteCreditPayment(creditId: Int, yearMonth: String)
 
+    // ZED 2.0: суммы по типам за месяц (для бюджета); TRANSFER не учитывается
+    @Query(
+        "SELECT SUM(CASE WHEN type = 'INCOME' THEN amountMinor ELSE 0 END) AS income, " +
+            "SUM(CASE WHEN type = 'EXPENSE' THEN amountMinor ELSE 0 END) AS expense " +
+            "FROM transactions WHERE dateMillis >= :fromMillis AND dateMillis < :toMillis"
+    )
+    suspend fun monthTotals(fromMillis: Long, toMillis: Long): MonthTotals
+
     // Бэкап + материализация повторений
     @Query("SELECT * FROM transactions")
     suspend fun getAll(): List<TransactionEntity>
@@ -52,3 +63,6 @@ interface TransactionDao {
     @Insert
     suspend fun insertAll(list: List<TransactionEntity>)
 }
+
+// Результат monthTotals: null, если операций за период не было
+data class MonthTotals(val income: Long?, val expense: Long?)

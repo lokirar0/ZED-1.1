@@ -26,11 +26,13 @@ data class HabitUiItem(
     val streak: Int,
     val weekFlags: List<Boolean>,
     val doneToday: Boolean,
-    val reminderLabel: String?
+    val reminderLabel: String?,
+    val archived: Boolean = false
 )
 
 data class HabitsUiState(
     val habits: List<HabitUiItem> = emptyList(),
+    val archivedCount: Int = 0,
     val todayDone: Int = 0,
     val todayTotal: Int = 0,
     val bestStreak: Int = 0,
@@ -56,7 +58,9 @@ class HabitsViewModel @Inject constructor(
             val today = LocalDate.now().toEpochDay()
             val byHabit = completions.groupBy({ it.habitId }, { it.day })
 
-            val items = habits.map { habit ->
+            // ZED 2.0: архивные привычки скрыты с главного экрана (история сохраняется)
+            val active = habits.filterNot { it.archived }
+            val items = active.map { habit ->
                 val days = byHabit[habit.id]?.toSet() ?: emptySet()
                 HabitUiItem(
                     id = habit.id,
@@ -67,11 +71,13 @@ class HabitsViewModel @Inject constructor(
                     doneToday = days.contains(today),
                     reminderLabel = habit.reminderTimeMinutes?.let { m ->
                         "%02d:%02d".format(m / 60, m % 60)
-                    }
+                    },
+                    archived = false
                 )
             }
             HabitsUiState(
                 habits = items,
+                archivedCount = habits.size - active.size,
                 todayDone = items.count { it.doneToday },
                 todayTotal = items.size,
                 bestStreak = habits.maxOfOrNull { h ->
@@ -83,6 +89,16 @@ class HabitsViewModel @Inject constructor(
 
     fun toggle(habitId: Int) {
         viewModelScope.launch { repository.toggle(habitId, LocalDate.now().toEpochDay()) }
+    }
+
+    // ZED 2.0: ретроактивная отметка за день в пределах недели (day = epochDay)
+    fun toggleAt(habitId: Int, day: Long) {
+        viewModelScope.launch { repository.toggle(habitId, day) }
+    }
+
+    // ZED 2.0: в архив / из архива
+    fun setArchived(habitId: Int, archived: Boolean) {
+        viewModelScope.launch { repository.setArchived(habitId, archived) }
     }
 
     // Удаление со снимком для возможной отмены

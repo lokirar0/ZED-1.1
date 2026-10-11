@@ -20,4 +20,7 @@ interface TransactionRepository {
 
     // Создаёт недостающие месячные копии recurring-шаблонов (по текущий месяц)
     suspend fun materializeRecurring()
+
+    // ZED 2.0: суммы дохода/расхода за период [fromMillis; toMillis), TRANSFER не учитывается
+    suspend fun monthTotals(fromMillis: Long, toMillis: Long): Pair<Long, Long>
 }

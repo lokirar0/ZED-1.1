@@ -11,13 +11,15 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 // Привычка. reminderTimeMinutes = минуты от полуночи (null = напоминание выключено)
+// ZED 2.0: archived = привычка убрана с главного экрана, но история отметок сохранена
 @Entity(tableName = "habits")
 data class HabitEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val note: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val reminderTimeMinutes: Int? = null
+    val reminderTimeMinutes: Int? = null,
+    val archived: Boolean = false
 )
 
 // Отметка выполнения за день (day = LocalDate.toEpochDay())
@@ -50,6 +52,10 @@ interface HabitDao {
 
     @Upsert
     suspend fun upsert(habit: HabitEntity): Long
+
+    // ZED 2.0: архивация/разархивация без потери истории
+    @Query("UPDATE habits SET archived = :archived WHERE id = :id")
+    suspend fun setArchived(id: Int, archived: Boolean)
 
     @Query("DELETE FROM habits WHERE id = :id")
     suspend fun delete(id: Int)
