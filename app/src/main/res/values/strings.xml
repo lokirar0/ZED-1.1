@@ -57,6 +57,11 @@
     <string name="habits_empty_body">Add your first habit — keep it simple.</string>
     <string name="habits_add">ADD HABIT</string>
     <string name="habits_archive">Archive habit</string>
+    <string name="habits_unarchive">Restore habit</string>
+    <string name="habits_archive_title">HABIT ARCHIVE</string>
+    <string name="habits_archive_count">ARCHIVED · %1$d</string>
+    <string name="habits_archive_empty">Archived habits will appear here.</string>
+    <string name="habits_all_archived">All habits are archived. Restore one from the archive.</string>
     <string name="habits_deleted">Habit deleted</string>
     <string name="editor_title_new">NEW HABIT</string>
     <string name="editor_title_edit">EDIT HABIT</string>

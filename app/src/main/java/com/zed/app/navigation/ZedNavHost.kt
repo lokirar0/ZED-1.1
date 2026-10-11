@@ -42,6 +42,7 @@ import com.zed.app.feature.finance.FinanceCalendarScreen
 import com.zed.app.feature.finance.FinanceScreen
 import com.zed.app.feature.finance.TransactionEditorScreen
 import com.zed.app.feature.habits.HabitEditorScreen
+import com.zed.app.feature.habits.HabitsArchiveScreen
 import com.zed.app.feature.habits.HabitStatsScreen
 import com.zed.app.feature.habits.HabitsScreen
 import com.zed.app.feature.onboarding.OnboardingScreen
@@ -191,8 +192,12 @@ fun ZedNavHost(
                     HabitsScreen(
                         onOpenSettings = { navController.navigate("settings") },
                         onOpenEditor = { id -> navController.navigate("habit_editor/$id") },
-                        onOpenStats = { navController.navigate("habits_stats") }
+                        onOpenStats = { navController.navigate("habits_stats") },
+                        onOpenArchive = { navController.navigate("habits_archive") }
                     )
+                }
+                composable("habits_archive") {
+                    HabitsArchiveScreen(onBack = { navController.popBackStack() })
                 }
                 composable(
                     route = "habit_editor/{habitId}",

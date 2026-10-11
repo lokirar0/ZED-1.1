@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,6 +52,7 @@ fun HabitsScreen(
     onOpenSettings: () -> Unit,
     onOpenEditor: (Int) -> Unit,
     onOpenStats: () -> Unit,
+    onOpenArchive: () -> Unit,
     viewModel: HabitsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -107,7 +109,7 @@ fun HabitsScreen(
                 }
             }
 
-            if (state.loaded && state.habits.isEmpty()) {
+            if (state.loaded && state.habits.isEmpty() && state.archivedHabits.isEmpty()) {
                 Column(
                     Modifier.fillMaxSize().padding(ZedSpacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -136,6 +138,46 @@ fun HabitsScreen(
                     contentPadding = PaddingValues(ZedSpacing.lg),
                     verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
                 ) {
+                    if (state.archivedCount > 0) {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                                shape = RoundedCornerShape(ZedRadius.md),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                border = BorderStroke(1.dp, colors.borderVisible),
+                                onClick = onOpenArchive,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Outlined.Archive, null, tint = colors.textSecondary)
+                                    Text(
+                                        text = stringResource(R.string.habits_archive_count, state.archivedCount),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = colors.textSecondary,
+                                        modifier = Modifier.weight(1f).padding(start = ZedSpacing.md)
+                                    )
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                        null,
+                                        tint = colors.textDisabled
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (state.loaded && state.habits.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.habits_all_archived),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.textSecondary,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = ZedSpacing.xl)
+                            )
+                        }
+                    }
                     items(state.habits, key = { it.id }) { item ->
                         val dismissState = rememberSwipeToDismissBoxState()
                         // Свайп = удаление со снимком; snackbar держит ОТМЕНУ,
@@ -166,7 +208,8 @@ fun HabitsScreen(
                                 HabitCard(
                                     item = item,
                                     onToggle = { viewModel.toggle(item.id) },
-                                    onClick = { onOpenEditor(item.id) }
+                                    onClick = { onOpenEditor(item.id) },
+                                    onArchive = { viewModel.setArchived(item.id, true) }
                                 )
                             }
                         )

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -90,7 +91,7 @@ fun WeekDots(flags: List<Boolean>, onDayClick: ((offsetBack: Int) -> Unit)? = nu
 fun HabitCard(
     item: HabitUiItem,
     onToggle: () -> Unit,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     onDayClick: ((offsetBack: Int) -> Unit)? = null,
     onArchive: (() -> Unit)? = null
 ) {
@@ -102,7 +103,7 @@ fun HabitCard(
         border = BorderStroke(1.dp, colors.borderVisible),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
         Row(
             Modifier.padding(ZedSpacing.lg),
@@ -135,8 +136,9 @@ fun HabitCard(
                 WeekDots(item.weekFlags, onDayClick = onDayClick)
             }
             Spacer(Modifier.width(ZedSpacing.md))
-            SquareCheckbox(checked = item.doneToday, onCheckedChange = onToggle)
-            // ZED 2.0: быстрый архив прямо из карточки
+            if (!item.archived) {
+                SquareCheckbox(checked = item.doneToday, onCheckedChange = onToggle)
+            }
             if (onArchive != null) {
                 Spacer(Modifier.width(ZedSpacing.sm))
                 Box(
@@ -147,8 +149,10 @@ fun HabitCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Archive,
-                        contentDescription = stringResource(R.string.habits_archive),
+                        imageVector = if (item.archived) Icons.Outlined.Unarchive else Icons.Outlined.Archive,
+                        contentDescription = stringResource(
+                            if (item.archived) R.string.habits_unarchive else R.string.habits_archive
+                        ),
                         tint = colors.textSecondary,
                         modifier = Modifier.size(16.dp)
                     )

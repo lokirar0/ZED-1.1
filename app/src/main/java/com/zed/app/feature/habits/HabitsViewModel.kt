@@ -32,6 +32,7 @@ data class HabitUiItem(
 
 data class HabitsUiState(
     val habits: List<HabitUiItem> = emptyList(),
+    val archivedHabits: List<HabitUiItem> = emptyList(),
     val archivedCount: Int = 0,
     val todayDone: Int = 0,
     val todayTotal: Int = 0,
@@ -58,9 +59,7 @@ class HabitsViewModel @Inject constructor(
             val today = LocalDate.now().toEpochDay()
             val byHabit = completions.groupBy({ it.habitId }, { it.day })
 
-            // ZED 2.0: архивные привычки скрыты с главного экрана (история сохраняется)
-            val active = habits.filterNot { it.archived }
-            val items = active.map { habit ->
+            val items = habits.map { habit ->
                 val days = byHabit[habit.id]?.toSet() ?: emptySet()
                 HabitUiItem(
                     id = habit.id,
@@ -72,14 +71,17 @@ class HabitsViewModel @Inject constructor(
                     reminderLabel = habit.reminderTimeMinutes?.let { m ->
                         "%02d:%02d".format(m / 60, m % 60)
                     },
-                    archived = false
+                    archived = habit.archived
                 )
             }
+            val active = items.filterNot { it.archived }
+            val archived = items.filter { it.archived }
             HabitsUiState(
-                habits = items,
-                archivedCount = habits.size - active.size,
-                todayDone = items.count { it.doneToday },
-                todayTotal = items.size,
+                habits = active,
+                archivedHabits = archived,
+                archivedCount = archived.size,
+                todayDone = active.count { it.doneToday },
+                todayTotal = active.size,
                 bestStreak = habits.maxOfOrNull { h ->
                     StreakCalculator.bestStreak(byHabit[h.id]?.toSet() ?: emptySet())
                 } ?: 0,

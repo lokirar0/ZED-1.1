@@ -52,6 +52,11 @@
     <string name="habits_empty_body">Добавь первую привычку — начни с простой.</string>
     <string name="habits_add">ДОБАВИТЬ ПРИВЫЧКУ</string>
     <string name="habits_archive">Архивировать привычку</string>
+    <string name="habits_unarchive">Вернуть привычку</string>
+    <string name="habits_archive_title">АРХИВ ПРИВЫЧЕК</string>
+    <string name="habits_archive_count">В АРХИВЕ · %1$d</string>
+    <string name="habits_archive_empty">Здесь появятся архивные привычки.</string>
+    <string name="habits_all_archived">Все привычки в архиве. Верните нужную из архива.</string>
     <string name="habits_deleted">Привычка удалена</string>
     <string name="editor_title_new">НОВАЯ ПРИВЫЧКА</string>
     <string name="editor_title_edit">ИЗМЕНЕНИЕ ПРИВЫЧКИ</string>
