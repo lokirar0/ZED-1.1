@@ -9,8 +9,7 @@ import android.util.Log
 import java.time.ZonedDateTime
 
 // ВСЕ напоминания ZED — на системном AlarmManager (exact RTC_WAKEUP):
-// срабатывают в настенное время даже при убитом процессе приложения.
-// WorkManager для будильников не годится: OxygenOS откладывает фоновые задачи.
+// привычки (глобально и персонально), кредиты, приёмы курсов.
 object ReminderScheduler {
 
     private const val TAG = "ZED_REMINDER"
@@ -18,13 +17,18 @@ object ReminderScheduler {
     const val ACTION_HABIT_TIME = "zed.action.HABIT_TIME"
     const val ACTION_HABITS_SUMMARY = "zed.action.HABITS_SUMMARY"
     const val ACTION_CREDITS = "zed.action.CREDITS"
+    const val ACTION_COURSE_DOSE = "zed.action.COURSE_DOSE"
 
     const val KEY_HABIT_ID = "habit_id"
     const val KEY_TIME = "time_minutes"
+    const val KEY_COURSE_ID = "course_id"
+    const val KEY_DOSE_MIN = "dose_min"
+    const val KEY_DOSE_DAY = "dose_day"
 
     private const val CODE_SUMMARY = 1001
     private const val CODE_CREDITS = 1002
     private const val CODE_HABIT_BASE = 2000
+    private const val CODE_COURSE_BASE = 3000
 
     // Глобально: сводка привычек в 20:00
     fun scheduleHabits(context: Context) {
@@ -46,7 +50,7 @@ object ReminderScheduler {
         cancelAlarm(context, ACTION_CREDITS, CODE_CREDITS)
     }
 
-    // Персональное напоминание привычки: ежедневно в timeMinutes от полуночи
+    // Персональное напоминание привычки
     fun scheduleHabitReminder(context: Context, habitId: Int, timeMinutes: Int) {
         setAlarm(
             context = context,
@@ -61,9 +65,33 @@ object ReminderScheduler {
         cancelAlarm(context, ACTION_HABIT_TIME, CODE_HABIT_BASE + habitId)
     }
 
+    // Будильник ближайшего приёма курса (цепочка: каждый выстрел ставит следующий)
+    fun scheduleCourseDose(
+        context: Context,
+        courseId: Int,
+        triggerAt: Long,
+        doseMinutes: Int,
+        dayEpoch: Long
+    ) {
+        setAlarm(
+            context = context,
+            action = ACTION_COURSE_DOSE,
+            requestCode = CODE_COURSE_BASE + courseId,
+            triggerAt = triggerAt,
+            extras = mapOf(
+                KEY_COURSE_ID to courseId,
+                KEY_DOSE_MIN to doseMinutes,
+                KEY_DOSE_DAY to dayEpoch.toInt()
+            )
+        )
+    }
+
+    fun cancelCourseDose(context: Context, courseId: Int) {
+        cancelAlarm(context, ACTION_COURSE_DOSE, CODE_COURSE_BASE + courseId)
+    }
+
     // --- приватное ---
 
-    // Ближайшее будущее наступление HH:mm (сегодня или завтра)
     private fun nextTriggerAt(hour: Int, minute: Int): Long {
         val now = ZonedDateTime.now()
         var t = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
@@ -90,7 +118,6 @@ object ReminderScheduler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // Точный будильник; если точные запрещены системой — мягкий fallback
         if (canExact(am)) {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
         } else {
