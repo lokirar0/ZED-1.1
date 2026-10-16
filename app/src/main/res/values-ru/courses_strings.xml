@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="courses_title">КУРСЫ</string>
+    <string name="courses_entry">КУРСЫ</string>
+    <string name="courses_entry_empty">НЕТ АКТИВНЫХ КУРСОВ</string>
+    <string name="courses_empty_title">НЕТ КУРСОВ</string>
+    <string name="courses_empty_body">Добавь курс приёма с интервалом и длительностью</string>
+    <string name="courses_add">ДОБАВИТЬ КУРС</string>
+    <string name="courses_day">ДЕНЬ %1$d/%2$d</string>
+    <string name="courses_every">КАЖДЫЕ %1$d Ч</string>
+    <string name="courses_not_started">НАЧНЁТСЯ %1$s</string>
+    <string name="courses_finished">КУРС ЗАВЕРШЁН</string>
+    <string name="courses_today_doses">ПРИЁМЫ СЕГОДНЯ</string>
+    <string name="courses_deleted">Курс удалён</string>
+    <string name="editor_course_new">НОВЫЙ КУРС</string>
+    <string name="editor_course_edit">ИЗМЕНЕНИЕ КУРСА</string>
+    <string name="editor_course_title">НАЗВАНИЕ</string>
+    <string name="editor_course_start">ДАТА НАЧАЛА</string>
+    <string name="editor_course_days">ДЛИТЕЛЬНОСТЬ (ДНЕЙ)</string>
+    <string name="editor_course_interval">ИНТЕРВАЛ (ЧАСЫ)</string>
+    <string name="editor_course_first">ВРЕМЯ ПЕРВОГО ПРИЁМА</string>
+    <string name="editor_error_days">Введите от 1 до 365 дней</string>
+    <string name="editor_error_interval">Введите от 1 до 12 часов</string>
+</resources>
