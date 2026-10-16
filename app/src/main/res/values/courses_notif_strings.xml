@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_course_title">ZED · COURSE</string>
+    <string name="notif_course_body">%1$s — dose at %2$s</string>
+</resources>
