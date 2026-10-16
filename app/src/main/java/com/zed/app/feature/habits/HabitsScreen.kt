@@ -51,6 +51,7 @@ fun HabitsScreen(
     onOpenSettings: () -> Unit,
     onOpenEditor: (Int) -> Unit,
     onOpenStats: () -> Unit,
+    onOpenCourses: () -> Unit,
     viewModel: HabitsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,6 +66,41 @@ fun HabitsScreen(
                 title = stringResource(R.string.tab_habits),
                 onSettingsClick = onOpenSettings
             )
+
+            // Карточка-вход в курсы приёма: ближайший приём или «нет активных»
+            Card(
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                shape = RoundedCornerShape(ZedRadius.md),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, colors.borderVisible),
+                onClick = onOpenCourses,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.xxs)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = state.coursesLabel
+                            ?: stringResource(R.string.courses_entry_empty),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (state.coursesLabel != null) colors.textSecondary else colors.textDisabled,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = stringResource(R.string.courses_entry),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.accent
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        null,
+                        tint = colors.textDisabled
+                    )
+                }
+            }
 
             // Строка статистики = кнопка входа в экран статистики
             if (state.todayTotal > 0) {
@@ -138,8 +174,6 @@ fun HabitsScreen(
                 ) {
                     items(state.habits, key = { it.id }) { item ->
                         val dismissState = rememberSwipeToDismissBoxState()
-                        // Свайп = удаление со снимком; snackbar держит ОТМЕНУ,
-                        // пока не скрыт или не нажата кнопка
                         LaunchedEffect(dismissState.currentValue) {
                             if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
                                 viewModel.deleteWithSnapshot(item.id)
