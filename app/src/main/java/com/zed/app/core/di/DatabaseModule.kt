@@ -2,10 +2,11 @@ package com.zed.app.core.di
 
 import android.content.Context
 import androidx.room.Room
-import com.zed.app.core.data.local.AccountDao
 import com.zed.app.core.data.local.CategoryDao
+import com.zed.app.core.data.local.CourseDao
 import com.zed.app.core.data.local.CreditDao
 import com.zed.app.core.data.local.CreditPaymentDao
+import com.zed.app.core.data.local.DoseDao
 import com.zed.app.core.data.local.FavoriteDao
 import com.zed.app.core.data.local.HabitCompletionDao
 import com.zed.app.core.data.local.HabitDao
@@ -15,11 +16,13 @@ import com.zed.app.core.data.local.SessionDao
 import com.zed.app.core.data.local.TransactionDao
 import com.zed.app.core.data.local.ZedDatabase
 import com.zed.app.core.data.repository.CategoryRepositoryImpl
+import com.zed.app.core.data.repository.CourseRepositoryImpl
 import com.zed.app.core.data.repository.CreditRepositoryImpl
 import com.zed.app.core.data.repository.HabitRepositoryImpl
 import com.zed.app.core.data.repository.PlayerRepositoryImpl
 import com.zed.app.core.data.repository.TransactionRepositoryImpl
 import com.zed.app.core.domain.repository.CategoryRepository
+import com.zed.app.core.domain.repository.CourseRepository
 import com.zed.app.core.domain.repository.CreditRepository
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.repository.PlayerRepository
@@ -40,28 +43,8 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZedDatabase =
         Room.databaseBuilder(context, ZedDatabase::class.java, ZedDatabase.NAME)
-            // ZED 2.0 (v4→v5): без destructive-миграции — добавляем таблицу accounts
-            // и колонки habits.archived / transactions.accountId / linkedAccountId,
-            // все пользовательские данные сохраняются.
-            .addMigrations(MIGRATION_4_5)
-            .fallbackToDestructiveMigrationOnDowngrade()
+            .fallbackToDestructiveMigration()
             .build()
-
-    private val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
-        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
-            db.execSQL(
-                "CREATE TABLE IF NOT EXISTS `accounts` (" +
-                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
-                    "`name` TEXT NOT NULL, " +
-                    "`balanceMinor` INTEGER NOT NULL, " +
-                    "`sortOrder` INTEGER NOT NULL, " +
-                    "`createdAt` INTEGER NOT NULL)"
-            )
-            db.execSQL("ALTER TABLE `habits` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("ALTER TABLE `transactions` ADD COLUMN `accountId` INTEGER")
-            db.execSQL("ALTER TABLE `transactions` ADD COLUMN `linkedAccountId` INTEGER")
-        }
-    }
 
     @Provides
     fun provideHabitDao(db: ZedDatabase): HabitDao = db.habitDao()
@@ -94,7 +77,10 @@ object DatabaseModule {
     fun provideHabitGoalDao(db: ZedDatabase): HabitGoalDao = db.habitGoalDao()
 
     @Provides
-    fun provideAccountDao(db: ZedDatabase): AccountDao = db.accountDao()
+    fun provideCourseDao(db: ZedDatabase): CourseDao = db.courseDao()
+
+    @Provides
+    fun provideDoseDao(db: ZedDatabase): DoseDao = db.doseDao()
 }
 
 @Module
@@ -119,4 +105,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindPlayerRepository(impl: PlayerRepositoryImpl): PlayerRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCourseRepository(impl: CourseRepositoryImpl): CourseRepository
 }
