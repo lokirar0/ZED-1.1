@@ -3,6 +3,7 @@ package com.zed.app.core.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.zed.app.core.domain.repository.CourseRepository
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -12,13 +13,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// После перезагрузки WorkManager-задачи слетают —
-// восстанавливаем глобальные напоминания И персональные расписания привычек
+// После перезагрузки будильники слетают — восстанавливаем все расписания:
+// глобальные, персональные привычки и приёмы курсов
 @AndroidEntryPoint
 class BootReceiver : BroadcastReceiver() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var habitRepository: HabitRepository
+    @Inject lateinit var courseRepository: CourseRepository
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
@@ -27,12 +29,12 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 if (settingsRepository.settings.first().notificationsEnabled) {
                     ReminderScheduler.scheduleAll(context)
-                    // Персональные напоминания привычек
                     habitRepository.getHabitsOnce().forEach { habit ->
                         habit.reminderTimeMinutes?.let { minutes ->
                             ReminderScheduler.scheduleHabitReminder(context, habit.id, minutes)
                         }
                     }
+                    courseRepository.rescheduleAllReminders()
                 }
             } finally {
                 pending.finish()
