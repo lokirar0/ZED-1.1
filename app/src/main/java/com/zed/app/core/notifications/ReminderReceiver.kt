@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.zed.app.R
+import com.zed.app.core.domain.repository.CourseRepository
 import com.zed.app.core.domain.repository.CreditRepository
 import com.zed.app.core.domain.repository.HabitRepository
+import com.zed.app.core.domain.util.DoseScheduleCalculator
 import com.zed.app.core.domain.util.PaymentCalculator
 import com.zed.app.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -18,16 +20,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // Точка входа системных будильников: показывает уведомление и переставляет
-// себя на следующие сутки. Работает даже при убитом процессе приложения.
+// себя дальше (цепочка). Работает при убитом процессе приложения.
 @AndroidEntryPoint
 class ReminderReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ZED_REMINDER"
+        private const val NOTIF_COURSE_BASE = 4000
     }
 
     @Inject lateinit var habitRepository: HabitRepository
     @Inject lateinit var creditRepository: CreditRepository
+    @Inject lateinit var courseRepository: CourseRepository
     @Inject lateinit var settingsRepository: SettingsRepository
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -39,7 +43,6 @@ class ReminderReceiver : BroadcastReceiver() {
                     ReminderScheduler.ACTION_HABIT_TIME -> {
                         val id = intent.getIntExtra(ReminderScheduler.KEY_HABIT_ID, -1)
                         val minutes = intent.getIntExtra(ReminderScheduler.KEY_TIME, -1)
-                        // Сначала переставляем на завтра — цепочка не рвётся даже при сбое
                         if (id != -1 && minutes != -1) {
                             ReminderScheduler.scheduleHabitReminder(context, id, minutes)
                         }
@@ -52,6 +55,14 @@ class ReminderReceiver : BroadcastReceiver() {
                     ReminderScheduler.ACTION_CREDITS -> {
                         ReminderScheduler.scheduleCredits(context)
                         handleCredits(context)
+                    }
+                    ReminderScheduler.ACTION_COURSE_DOSE -> {
+                        val courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1)
+                        val doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1)
+                        val dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1)
+                        // Сначала переставляем цепочку на следующий приём
+                        if (courseId != -1) courseRepository.rescheduleReminders(courseId)
+                        handleCourseDose(context, courseId, doseMin, dayEpoch.toLong())
                     }
                 }
             } catch (t: Throwable) {
@@ -67,12 +78,10 @@ class ReminderReceiver : BroadcastReceiver() {
     private suspend fun notificationsEnabled(): Boolean =
         settingsRepository.settings.first().notificationsEnabled
 
-    // Персональное напоминание привычки
     private suspend fun handleHabitTime(context: Context, habitId: Int) {
         if (habitId == -1 || !notificationsEnabled()) return
         val habit = habitRepository.getHabit(habitId) ?: return
         val today = LocalDate.now().toEpochDay()
-        // Уже отмечено сегодня — молчим (так задумано)
         if (habitRepository.isCompleted(habitId, today)) {
             Log.d(TAG, "habit $habitId already done today — silent")
             return
@@ -86,7 +95,6 @@ class ReminderReceiver : BroadcastReceiver() {
         Log.d(TAG, "habit $habitId notified")
     }
 
-    // Сводка по привычкам в 20:00
     private suspend fun handleHabitsSummary(context: Context) {
         if (!notificationsEnabled()) return
         val pendingCount = habitRepository.todayPendingCount()
@@ -101,7 +109,6 @@ class ReminderReceiver : BroadcastReceiver() {
         }
     }
 
-    // Кредиты в 09:00: платёж ≤ 3 дней или просрочка
     private suspend fun handleCredits(context: Context) {
         if (!notificationsEnabled()) return
         val today = LocalDate.now()
@@ -128,5 +135,27 @@ class ReminderReceiver : BroadcastReceiver() {
             text = text
         )
         Log.d(TAG, "credits notified: ${first.first}")
+    }
+
+    // Приём курса: пуш только если день актуальный и доза ещё не отмечена
+    private suspend fun handleCourseDose(context: Context, courseId: Int, doseMin: Int, dayEpoch: Long) {
+        if (courseId == -1 || doseMin == -1 || !notificationsEnabled()) return
+        if (dayEpoch != LocalDate.now().toEpochDay()) {
+            Log.d(TAG, "course $courseId dose stale (day=$dayEpoch) — silent")
+            return
+        }
+        val course = courseRepository.getCourse(courseId) ?: return
+        if (courseRepository.isDoseTaken(courseId, dayEpoch, doseMin)) {
+            Log.d(TAG, "course $courseId dose $doseMin already taken — silent")
+            return
+        }
+        val time = DoseScheduleCalculator.formatMinutes(doseMin)
+        NotificationHelper.show(
+            context = context,
+            notificationId = NOTIF_COURSE_BASE + courseId * 100 + doseMin / 60,
+            title = context.getString(R.string.notif_course_title),
+            text = context.getString(R.string.notif_course_body, course.title, time)
+        )
+        Log.d(TAG, "course $courseId dose $doseMin notified")
     }
 }
