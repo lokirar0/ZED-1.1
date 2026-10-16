@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zed.app.core.data.repository.ActivityRepository
+import com.zed.app.core.domain.repository.CourseRepository
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.notifications.ReminderScheduler
@@ -24,6 +25,7 @@ class MainViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val habitRepository: HabitRepository,
     private val transactionRepository: TransactionRepository,
+    private val courseRepository: CourseRepository,
     private val activityRepository: ActivityRepository,
     private val settingsRepositoryForSchedule: SettingsRepository,
     @ApplicationContext private val context: Context
@@ -36,18 +38,17 @@ class MainViewModel @Inject constructor(
     init {
         ensureSchedules()
         viewModelScope.launch { transactionRepository.materializeRecurring() }
-        // Счётчик запусков для экрана активности
         viewModelScope.launch { activityRepository.addLaunch(LocalDate.now().toEpochDay()) }
+        // Курсы: восстанавливаем цепочки будильников при каждом старте
+        viewModelScope.launch { courseRepository.rescheduleAllReminders() }
     }
 
-    // Секунды текущей сессии (приходит из MainActivity.onPause)
     fun addSession(seconds: Long) {
         viewModelScope.launch {
             activityRepository.addSeconds(LocalDate.now().toEpochDay(), seconds)
         }
     }
 
-    // Будильники напоминаний: глобальные + персональные (идемпотентно)
     fun ensureSchedules() {
         viewModelScope.launch {
             val s = settingsRepositoryForSchedule.settings.first()
