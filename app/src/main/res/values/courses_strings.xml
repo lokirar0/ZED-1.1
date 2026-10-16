@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="courses_title">COURSES</string>
+    <string name="courses_entry">COURSES</string>
+    <string name="courses_entry_empty">NO ACTIVE COURSES</string>
+    <string name="courses_empty_title">NO COURSES</string>
+    <string name="courses_empty_body">Add a medication course with interval and duration</string>
+    <string name="courses_add">ADD COURSE</string>
+    <string name="courses_day">DAY %1$d/%2$d</string>
+    <string name="courses_every">EVERY %1$d H</string>
+    <string name="courses_not_started">STARTS %1$s</string>
+    <string name="courses_finished">COURSE FINISHED</string>
+    <string name="courses_today_doses">TODAY DOSES</string>
+    <string name="courses_deleted">Course deleted</string>
+    <string name="editor_course_new">NEW COURSE</string>
+    <string name="editor_course_edit">EDIT COURSE</string>
+    <string name="editor_course_title">NAME</string>
+    <string name="editor_course_start">START DATE</string>
+    <string name="editor_course_days">DURATION (DAYS)</string>
+    <string name="editor_course_interval">INTERVAL (HOURS)</string>
+    <string name="editor_course_first">FIRST DOSE TIME</string>
+    <string name="editor_error_days">Enter 1 to 365 days</string>
+    <string name="editor_error_interval">Enter 1 to 12 hours</string>
+</resources>
