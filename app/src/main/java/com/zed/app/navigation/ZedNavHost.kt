@@ -36,6 +36,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.zed.app.R
+import com.zed.app.feature.courses.CourseEditorScreen
+import com.zed.app.feature.courses.CoursesScreen
 import com.zed.app.feature.credits.CreditEditorScreen
 import com.zed.app.feature.credits.CreditsScreen
 import com.zed.app.feature.finance.FinanceCalendarScreen
@@ -69,8 +71,7 @@ sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector)
     }
 }
 
-// Анимации в стиле Nothing: push-экраны въезжают сбоку на 10% с затуханием,
-// вкладки переключаются чистым кроссфейдом (без сдвига).
+// Анимации в стиле Nothing: push въезжает сбоку на 10%, вкладки — кроссфейд
 private val pushEnter = fadeIn(tween(200)) + slideInHorizontally(tween(260)) { it / 10 }
 private val pushExit = fadeOut(tween(150))
 private val popEnter = fadeIn(tween(200))
@@ -92,7 +93,6 @@ fun ZedNavHost(
     val showBottomBar = currentRoute in tabRoutes
     val colors = LocalZedColors.current
 
-    // Действие из шортката иконки
     LaunchedEffect(startAction) {
         when (startAction) {
             "finance_editor" -> navController.navigate("finance_editor")
@@ -180,7 +180,7 @@ fun ZedNavHost(
                     )
                 }
 
-                // Вкладки: чистый кроссфейд
+                // Привычки + курсы + статистика
                 composable(
                     route = Screen.Habits.route,
                     enterTransition = { tabFadeIn },
@@ -191,7 +191,8 @@ fun ZedNavHost(
                     HabitsScreen(
                         onOpenSettings = { navController.navigate("settings") },
                         onOpenEditor = { id -> navController.navigate("habit_editor/$id") },
-                        onOpenStats = { navController.navigate("habits_stats") }
+                        onOpenStats = { navController.navigate("habits_stats") },
+                        onOpenCourses = { navController.navigate("courses") }
                     )
                 }
                 composable(
@@ -209,7 +210,26 @@ fun ZedNavHost(
                 composable("habits_stats") {
                     HabitStatsScreen(onBack = { navController.popBackStack() })
                 }
+                composable("courses") {
+                    CoursesScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenEditor = { id -> navController.navigate("course_editor/$id") }
+                    )
+                }
+                composable(
+                    route = "course_editor/{courseId}",
+                    arguments = listOf(navArgument("courseId") {
+                        type = NavType.IntType
+                        defaultValue = -1
+                    })
+                ) { entry ->
+                    CourseEditorScreen(
+                        courseId = entry.arguments?.getInt("courseId") ?: -1,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
 
+                // Финансы
                 composable(
                     route = Screen.Finance.route,
                     enterTransition = { tabFadeIn },
@@ -253,6 +273,7 @@ fun ZedNavHost(
                     TransactionEditorScreen(onBack = { navController.popBackStack() })
                 }
 
+                // Кредиты
                 composable(
                     route = Screen.Credits.route,
                     enterTransition = { tabFadeIn },
