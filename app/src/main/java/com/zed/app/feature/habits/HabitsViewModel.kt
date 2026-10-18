@@ -3,6 +3,7 @@ package com.zed.app.feature.habits
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.R
 import com.zed.app.core.domain.model.Habit
 import com.zed.app.core.domain.model.HabitCompletion
 import com.zed.app.core.domain.repository.CourseRepository
@@ -36,7 +37,7 @@ data class HabitsUiState(
     val todayDone: Int = 0,
     val todayTotal: Int = 0,
     val bestStreak: Int = 0,
-    val coursesLabel: String? = null, // «ДЕНЬ 3/25 · СЛЕД. 14:00» или null
+    val coursesLabel: String? = null, // «ДЕНЬ 3/25 · 2 Ч 30 М · СЛЕД. 14:00» или null
     val loaded: Boolean = false
 )
 
@@ -117,7 +118,8 @@ class HabitsViewModel @Inject constructor(
 
     // --- приватное ---
 
-    // Метка карточки курсов: первый активный курс + ближайший неприёманный приём
+    // Метка карточки курсов: день курса, интервал и следующий неприёманный приём.
+    // Локализовано через строки; минуты интервала учитываются (dosesForDay с 3-м аргументом)
     private fun buildCoursesLabel(
         courses: List<com.zed.app.core.domain.model.Course>,
         doses: List<com.zed.app.core.domain.model.DoseMark>
@@ -131,17 +133,22 @@ class HabitsViewModel @Inject constructor(
             )
         } ?: return null
         val day = DoseScheduleCalculator.dayIndex(active.startLocalDate(), today)
+        val interval = DoseScheduleCalculator.formatInterval(active.intervalTotalMinutes())
         val taken = doses
             .filter { it.courseId == active.id && it.day == today.toEpochDay() }
             .map { it.doseMinutes }
             .toSet()
         val next = DoseScheduleCalculator
-            .dosesForDay(active.firstDoseMinutes, active.intervalHours)
+            .dosesForDay(active.firstDoseMinutes, active.intervalHours, active.intervalMinutes)
             .firstOrNull { it >= nowMin && it !in taken }
         return if (next == null) {
-            "DAY $day/${active.totalDays} · DONE"
+            context.getString(R.string.courses_card_done, day, active.totalDays, interval)
         } else {
-            "DAY $day/${active.totalDays} · ${DoseScheduleCalculator.formatMinutes(next)}"
+            context.getString(
+                R.string.courses_card_active,
+                day, active.totalDays, interval,
+                DoseScheduleCalculator.formatMinutes(next)
+            )
         }
     }
 }
