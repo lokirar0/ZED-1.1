@@ -48,10 +48,10 @@ import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.delay
 
 // Экран первичных разрешений после онбординга.
-// Статусы ОПРАШИВАЮТСЯ РАЗ В СЕКУНДУ — пункт сам становится «ДА»,
-// как только разрешение выдано (диалогом, из шторки или из настроек).
-// Если системный диалог подавлен (ранее «Запретить навсегда») —
-// кнопка ведёт в карточку приложения.
+// СТАТУСЫ ОПРАШИВАЮТСЯ КАЖДЫЕ 500 МС: пункт сам становится «ДА» в тот же момент,
+// как разрешение выдано — диалогом, из шторки, из системных настроек или из
+// карточки приложения. Плюс перечитывание при возврате (ON_RESUME).
+// Если системный диалог подавлен (ранее «Запретить») — кнопка ведёт в карточку приложения.
 @Composable
 fun PermissionsGate(onDone: () -> Unit) {
     val context = LocalContext.current
@@ -59,14 +59,14 @@ fun PermissionsGate(onDone: () -> Unit) {
 
     var refresh by remember { mutableIntStateOf(0) }
 
-    // Опрос статусов 1 Гц, пока экран открыт
+    // Опрос статусов 2 Гц, пока экран открыт
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1000)
+            delay(500)
             refresh++
         }
     }
-    // Плюс перечитывание при возврате из системных экранов
+    // Перечитывание при возврате из системных экранов
     DisposableEffect(Unit) {
         val owner = context as? LifecycleOwner
         val observer = LifecycleEventObserver { _, event ->
@@ -76,7 +76,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         onDispose { owner?.lifecycle?.removeObserver(observer) }
     }
 
-    // Статусы (читаются на каждой рекомпозиции)
+    // Статусы (перечитываются на каждой рекомпозиции)
     val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
@@ -99,7 +99,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         ContextCompat.getSystemService(context, NotificationManager::class.java)
             ?.canUseFullScreenIntent() ?: true
 
-    // Если диалог подавлен — открываем карточку приложения в настройках
+    // Если системный диалог подавлен — открываем карточку приложения
     fun openAppDetails() {
         runCatching {
             context.startActivity(
@@ -176,7 +176,6 @@ fun PermissionsGate(onDone: () -> Unit) {
                 }
             }
         )
-        // Полноэкранные оповещения: без них будильник курса не всплывает поверх блокировки
         PermRow(
             title = stringResource(R.string.perm_fullscreen),
             granted = fullscreenOk,
