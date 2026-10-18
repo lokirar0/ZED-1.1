@@ -1,14 +1,10 @@
 package com.zed.app
 
-import android.app.AlarmManager
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.provider.Settings as AndroidSettings
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -20,17 +16,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -43,7 +30,7 @@ import com.zed.app.core.settings.ThemeMode
 import com.zed.app.core.settings.applyAppLocale
 import com.zed.app.core.widgets.ZedWidgetRefresher
 import com.zed.app.navigation.ZedNavHost
-import com.zed.app.ui.theme.LocalZedColors
+import com.zed.app.ui.PermissionsGate
 import com.zed.app.ui.theme.ZedBlack
 import com.zed.app.ui.theme.ZedTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -59,13 +46,10 @@ class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
 
-    // Замер сессии для экрана «Активность»: старт в onResume, стоп в onPause
+    // Замер сессии для экрана «Активность»
     private var sessionStartMs = 0L
 
-    // ------------------------------------------------------------
-    // ГЛОБАЛЬНЫЙ HAPTIC-СЛОЙ (стиль Nothing):
-    // тик на каждый тап, отклик удержания на долгий тап, скроллы молчат
-    // ------------------------------------------------------------
+    // Глобальный haptic-слой: тик на тап, отклик на удержание, скроллы молчат
     private val hapticHandler = Handler(Looper.getMainLooper())
     private val slop by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     private var downX = 0f
@@ -131,11 +115,16 @@ class MainActivity : AppCompatActivity() {
                     ThemeMode.DARK -> true
                 }
                 ZedTheme(darkTheme = dark) {
-                    ExactAlarmPrompt()
-                    ZedNavHost(
-                        startDestination = if (s.onboardingCompleted) "habits" else "onboarding",
-                        startAction = startAction
-                    )
+                    // После онбординга и до прохождения гейта разрешений —
+                    // показываем экран выдачи разрешений вместо приложения
+                    if (s.onboardingCompleted && !s.permissionsAsked) {
+                        PermissionsGate(onDone = { viewModel.markPermissionsAsked() })
+                    } else {
+                        ZedNavHost(
+                            startDestination = if (s.onboardingCompleted) "habits" else "onboarding",
+                            startAction = startAction
+                        )
+                    }
                 }
             }
         }
@@ -149,7 +138,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Сохраняем длительность сессии и обновляем виджеты
         val seconds = (SystemClock.elapsedRealtime() - sessionStartMs) / 1000
         vm.addSession(seconds)
         ZedWidgetRefresher.update(this)
@@ -176,54 +164,4 @@ class MainActivity : AppCompatActivity() {
                     .putExtra("zed_action", action)
             )
             .build()
-}
-
-// Диалог разрешения точных будильников
-@Composable
-private fun ExactAlarmPrompt() {
-    val context = LocalContext.current
-    val colors = LocalZedColors.current
-
-    val denied = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-        !(context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
-
-    var show by remember { mutableStateOf(denied) }
-
-    if (show && denied) {
-        AlertDialog(
-            onDismissRequest = { show = false },
-            containerColor = colors.surface,
-            title = { Text(stringResource(R.string.exact_alarm_title), color = colors.textDisplay) },
-            text = { Text(stringResource(R.string.exact_alarm_body), color = colors.textSecondary) },
-            confirmButton = {
-                TextButton(onClick = {
-                    show = false
-                    runCatching {
-                        context.startActivity(
-                            Intent(
-                                AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                                Uri.parse("package:" + context.packageName)
-                            )
-                        )
-                    }.onFailure {
-                        runCatching {
-                            context.startActivity(
-                                Intent(
-                                    AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse("package:" + context.packageName)
-                                )
-                            )
-                        }
-                    }
-                }) {
-                    Text(stringResource(R.string.exact_alarm_grant), color = colors.accent)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { show = false }) {
-                    Text(stringResource(R.string.backup_clear_cancel), color = colors.textSecondary)
-                }
-            }
-        )
-    }
 }
