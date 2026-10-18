@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -19,18 +18,15 @@ data class Settings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val notificationsEnabled: Boolean = true,
     val onboardingCompleted: Boolean = false,
-    val language: String = "system",       // "system" | "ru" | "en"
-    val shuffleEnabled: Boolean = false,   // плеер: перемешивание
-    val repeatMode: Int = 0,               // плеер: 0=OFF, 1=ONE, 2=ALL
-    val fxSpeed: Float = 1f,               // плеер: Slowed 0.5..1.5
-    val fxReverb: Int = 0,                 // плеер: Reverb 0..100
-    val fxEq: String = "0.5,0.5,0.5,0.5,0.5", // плеер: 5 полос эквалайзера
-    // --- ZED 2.0 ---
-    val monthlyBudgetMinor: Long = 0L,     // месячный бюджет по расходам (0 = выключен)
-    val currencyCode: String = "RUB"       // валюта отображения сумм
+    val language: String = "system",
+    val shuffleEnabled: Boolean = false,
+    val repeatMode: Int = 0,
+    val fxSpeed: Float = 1f,
+    val fxReverb: Int = 0,
+    val fxEq: String = "0.5,0.5,0.5,0.5,0.5",
+    val notificationSoundUri: String = "" // пусто = стандартный звук канала
 )
 
-// "0.9,0.75,0.5,0.4,0.35" → список из 5 значений 0..1
 fun parseEqGains(s: String): List<Float> =
     s.split(",")
         .map { it.trim().toFloatOrNull() ?: 0.5f }
@@ -53,8 +49,7 @@ class SettingsRepository @Inject constructor(
             fxSpeed = prefs[KEY_FX_SPEED] ?: 1f,
             fxReverb = prefs[KEY_FX_REVERB] ?: 0,
             fxEq = prefs[KEY_FX_EQ] ?: "0.5,0.5,0.5,0.5,0.5",
-            monthlyBudgetMinor = prefs[KEY_BUDGET] ?: 0L,
-            currencyCode = prefs[KEY_CURRENCY] ?: "RUB"
+            notificationSoundUri = prefs[KEY_NOTIF_SOUND] ?: ""
         )
     }
 
@@ -65,7 +60,6 @@ class SettingsRepository @Inject constructor(
     suspend fun setShuffleEnabled(enabled: Boolean) { dataStore.edit { it[KEY_SHUFFLE] = enabled } }
     suspend fun setRepeatMode(mode: Int) { dataStore.edit { it[KEY_REPEAT] = mode } }
 
-    // Атомарная запись всех FX-настроек плеера
     suspend fun setFx(speed: Float, reverb: Int, eq: String) {
         dataStore.edit {
             it[KEY_FX_SPEED] = speed
@@ -74,9 +68,10 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    // ZED 2.0: месячный бюджет (копейки, 0 = выключен) и валюта отображения
-    suspend fun setMonthlyBudget(minor: Long) { dataStore.edit { it[KEY_BUDGET] = minor } }
-    suspend fun setCurrency(code: String) { dataStore.edit { it[KEY_CURRENCY] = code } }
+    // Звук уведомлений: Uri из системного picker'а (пользовательские рингтоны тоже)
+    suspend fun setNotificationSound(uri: String) {
+        dataStore.edit { it[KEY_NOTIF_SOUND] = uri }
+    }
 
     private companion object {
         val KEY_THEME = stringPreferencesKey("theme_mode")
@@ -88,7 +83,6 @@ class SettingsRepository @Inject constructor(
         val KEY_FX_SPEED = floatPreferencesKey("fx_speed")
         val KEY_FX_REVERB = intPreferencesKey("fx_reverb")
         val KEY_FX_EQ = stringPreferencesKey("fx_eq")
-        val KEY_BUDGET = longPreferencesKey("monthly_budget_minor")
-        val KEY_CURRENCY = stringPreferencesKey("currency_code")
+        val KEY_NOTIF_SOUND = stringPreferencesKey("notification_sound_uri")
     }
 }
