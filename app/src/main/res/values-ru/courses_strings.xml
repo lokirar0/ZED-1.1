@@ -7,18 +7,19 @@
     <string name="courses_empty_body">Добавь курс приёма с интервалом и длительностью</string>
     <string name="courses_add">ДОБАВИТЬ КУРС</string>
     <string name="courses_day">ДЕНЬ %1$d/%2$d</string>
-    <string name="courses_every">КАЖДЫЕ %1$d Ч</string>
+    <string name="courses_every">КАЖДЫЕ %1$s</string>
     <string name="courses_not_started">НАЧНЁТСЯ %1$s</string>
     <string name="courses_finished">КУРС ЗАВЕРШЁН</string>
     <string name="courses_today_doses">ПРИЁМЫ СЕГОДНЯ</string>
     <string name="courses_deleted">Курс удалён</string>
+    <string name="courses_card_active">ДЕНЬ %1$d/%2$d · %3$s · СЛЕД. %4$s</string>
+    <string name="courses_card_done">ДЕНЬ %1$d/%2$d · %3$s · ГОТОВО</string>
     <string name="editor_course_new">НОВЫЙ КУРС</string>
     <string name="editor_course_edit">ИЗМЕНЕНИЕ КУРСА</string>
     <string name="editor_course_title">НАЗВАНИЕ</string>
     <string name="editor_course_start">ДАТА НАЧАЛА</string>
     <string name="editor_course_days">ДЛИТЕЛЬНОСТЬ (ДНЕЙ)</string>
-    <string name="editor_course_interval">ИНТЕРВАЛ (ЧАСЫ)</string>
     <string name="editor_course_first">ВРЕМЯ ПЕРВОГО ПРИЁМА</string>
     <string name="editor_error_days">Введите от 1 до 365 дней</string>
-    <string name="editor_error_interval">Введите от 1 до 12 часов</string>
+    <string name="editor_error_interval">Интервал: от 10 минут до 24 часов</string>
 </resources>
