@@ -22,6 +22,12 @@ import kotlinx.coroutines.launch
 
 // Точка входа системных будильников: уведомления, полноэкранные алерты курсов,
 // snooze/dismiss, перестановка цепочек. Работает при убитом процессе.
+//
+// ПОВЕДЕНИЕ КНОПОК БУДИЛЬНИКА КУРСА:
+// — «ПОДОЖДАТЬ 5 МИН»: гасит алерт и ставит snooze-будильник на +5 минут,
+//   повтор показывает алерт снова (если дозу уже не приняли);
+// — «ОТКЛЮЧИТЬ»: гасит алерт И засчитывает приём (отметка в базе),
+//   цепочка будильников сдвигается на следующий приём.
 @AndroidEntryPoint
 class ReminderReceiver : BroadcastReceiver() {
 
@@ -62,11 +68,13 @@ class ReminderReceiver : BroadcastReceiver() {
                         val courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1)
                         val doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1)
                         val dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1)
-                        // Цепочка: сразу ставим следующий приём
+                        // Цепочка: сразу ставим СЛЕДУЮЩИЙ приём (текущий исключён
+                        // условием > nowMin в калькуляторе — петли больше нет)
                         if (courseId != -1) courseRepository.rescheduleReminders(courseId)
                         handleCourseDose(context, courseId, doseMin, dayEpoch.toLong())
                     }
                     ReminderScheduler.ACTION_SNOOZE -> {
+                        // «ПОДОЖДАТЬ 5 МИН»: гасим алерт, ставим повтор через 5 минут
                         val notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1)
                         NotificationHelper.cancel(context, notifId)
                         ReminderScheduler.scheduleSnoozeFire(
@@ -79,23 +87,32 @@ class ReminderReceiver : BroadcastReceiver() {
                             title = intent.getStringExtra(ReminderScheduler.KEY_TITLE).orEmpty(),
                             timeLabel = intent.getStringExtra(ReminderScheduler.KEY_TIME_LABEL).orEmpty()
                         )
+                        Log.d(TAG, "snooze armed: notif=$notifId +${SNOOZE_MINUTES}min")
                     }
                     ReminderScheduler.ACTION_SNOOZE_FIRE -> {
-                        // Повторный показ будильника после snooze
-                        showCourseAlarm(
+                        // Повтор через 5 минут: полная проверка (день/принято/включено)
+                        handleCourseDose(
                             context = context,
-                            notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1),
                             courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1),
                             doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1),
-                            dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1).toLong(),
-                            title = intent.getStringExtra(ReminderScheduler.KEY_TITLE).orEmpty(),
-                            timeLabel = intent.getStringExtra(ReminderScheduler.KEY_TIME_LABEL).orEmpty()
+                            dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1).toLong()
                         )
                     }
                     ReminderScheduler.ACTION_DISMISS -> {
+                        // «ОТКЛЮЧИТЬ»: гасим алерт + snooze и ЗАСЧИТЫВАЕМ приём
                         val notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1)
+                        val courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1)
+                        val doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1)
+                        val dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1).toLong()
                         NotificationHelper.cancel(context, notifId)
                         ReminderScheduler.cancelSnoozeFire(context, notifId)
+                        if (courseId != -1 && doseMin != -1 && dayEpoch == LocalDate.now().toEpochDay()) {
+                            if (!courseRepository.isDoseTaken(courseId, dayEpoch, doseMin)) {
+                                // toggle вставит отметку «принято» и передвинет цепочку
+                                courseRepository.toggleDose(courseId, dayEpoch, doseMin)
+                                Log.d(TAG, "course $courseId dose $doseMin marked taken by dismiss")
+                            }
+                        }
                     }
                 }
             } catch (t: Throwable) {
