@@ -24,7 +24,8 @@ data class Settings(
     val fxSpeed: Float = 1f,
     val fxReverb: Int = 0,
     val fxEq: String = "0.5,0.5,0.5,0.5,0.5",
-    val notificationSoundUri: String = "" // пусто = стандартный звук канала
+    val notificationSoundUri: String = "",
+    val permissionsAsked: Boolean = false // экран первичных разрешений показан/пройден
 )
 
 fun parseEqGains(s: String): List<Float> =
@@ -49,7 +50,8 @@ class SettingsRepository @Inject constructor(
             fxSpeed = prefs[KEY_FX_SPEED] ?: 1f,
             fxReverb = prefs[KEY_FX_REVERB] ?: 0,
             fxEq = prefs[KEY_FX_EQ] ?: "0.5,0.5,0.5,0.5,0.5",
-            notificationSoundUri = prefs[KEY_NOTIF_SOUND] ?: ""
+            notificationSoundUri = prefs[KEY_NOTIF_SOUND] ?: "",
+            permissionsAsked = prefs[KEY_PERMS_ASKED] ?: false
         )
     }
 
@@ -59,6 +61,7 @@ class SettingsRepository @Inject constructor(
     suspend fun setLanguage(code: String) { dataStore.edit { it[KEY_LANGUAGE] = code } }
     suspend fun setShuffleEnabled(enabled: Boolean) { dataStore.edit { it[KEY_SHUFFLE] = enabled } }
     suspend fun setRepeatMode(mode: Int) { dataStore.edit { it[KEY_REPEAT] = mode } }
+    suspend fun setPermissionsAsked(value: Boolean) { dataStore.edit { it[KEY_PERMS_ASKED] = value } }
 
     suspend fun setFx(speed: Float, reverb: Int, eq: String) {
         dataStore.edit {
@@ -68,7 +71,6 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    // Звук уведомлений: Uri из системного picker'а (пользовательские рингтоны тоже)
     suspend fun setNotificationSound(uri: String) {
         dataStore.edit { it[KEY_NOTIF_SOUND] = uri }
     }
@@ -84,5 +86,6 @@ class SettingsRepository @Inject constructor(
         val KEY_FX_REVERB = intPreferencesKey("fx_reverb")
         val KEY_FX_EQ = stringPreferencesKey("fx_eq")
         val KEY_NOTIF_SOUND = stringPreferencesKey("notification_sound_uri")
+        val KEY_PERMS_ASKED = booleanPreferencesKey("permissions_asked")
     }
 }
