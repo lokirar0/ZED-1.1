@@ -70,10 +70,12 @@ class PlayerViewModel @Inject constructor(
     private var controller: MediaController? = null
     private var tickerJob: Job? = null
 
-    // Трек из поиска (player_screen?play=id). Если библиотека ещё не готова —
-    // запрос откладывается (deferredPlayId) и выполняется в refresh()
+    // Трек из поиска (player_screen?play=id)
     private var pendingPlayId: Long = savedStateHandle.get<Long>("play") ?: -1L
+
+    // Отложенные запросы: библиотека не готова / контроллер не подключён
     private var deferredPlayId: Long = -1L
+    private var pendingPlayIndex: Int = -1
 
     init {
         viewModelScope.launch { refresh() }
@@ -99,7 +101,12 @@ class PlayerViewModel @Inject constructor(
         val token = SessionToken(context, ComponentName(context, ZedPlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
         future.addListener({
-            controller = runCatching { future.get() }.getOrNull()?.also { c ->
+            // ВАЖНО: сначала присваиваем controller, ПОТОМ любая работа с ним.
+            // Раньше playTrackById вызывался до присвоения поля и молча выходил
+            // на `controller ?: return` — запрос из поиска терялся навсегда.
+            val c = runCatching { future.get() }.getOrNull()
+            if (c != null) {
+                controller = c
                 c.addListener(playerListener)
                 syncFrom(c)
                 viewModelScope.launch {
@@ -111,11 +118,19 @@ class PlayerViewModel @Inject constructor(
                 if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
                     pushQueueToPlayer()
                 }
-                // Трек из поиска: playTrackById сам отложится, если скан не готов
+                // Трек из поиска: библиотека может быть ещё не готова —
+                // playTrackById сам отложится (deferredPlayId) и доиграет в refresh()
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
                     playTrackById(id)
+                }
+                // Страховка: индекс, отложенный до подключения контроллера
+                if (pendingPlayIndex >= 0) {
+                    val idx = pendingPlayIndex
+                    pendingPlayIndex = -1
+                    pushQueueToPlayer(resetPosition = true)
+                    playAt(idx)
                 }
             }
         }, ContextCompat.getMainExecutor(context))
@@ -150,7 +165,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // Воспроизвести трек по id. Если библиотека ещё пуста — откладываем до скана
+    // Воспроизвести трек по id (поиск, шорткаты).
+    // Не готова библиотека → откладываем id. Нет контроллера → откладываем индекс.
+    // Оба отложенных запроса выполняются автоматически, потеря невозможна.
     fun playTrackById(id: Long) {
         val st = _state.value
         if (st.tracks.isEmpty()) {
@@ -161,6 +178,10 @@ class PlayerViewModel @Inject constructor(
         val idx = queue.indexOfFirst { it.id == id }
         if (idx < 0) return
         _state.update { it.copy(queue = queue) }
+        if (controller == null) {
+            pendingPlayIndex = idx
+            return
+        }
         pushQueueToPlayer(resetPosition = true)
         playAt(idx)
     }
