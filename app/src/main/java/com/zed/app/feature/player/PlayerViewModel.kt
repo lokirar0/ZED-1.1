@@ -105,11 +105,9 @@ class PlayerViewModel @Inject constructor(
                     c.repeatMode = s.repeatMode.toPlayerRepeat()
                     _state.update { it.copy(shuffle = s.shuffleEnabled, repeatMode = s.repeatMode) }
                 }
-                // Если очередь уже загружена, а плеер пуст — заливаем таймлайн
                 if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
                     pushQueueToPlayer()
                 }
-                // Трек из поиска: дожидаемся библиотеку и играем
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
@@ -142,7 +140,6 @@ class PlayerViewModel @Inject constructor(
                     queue = if (st.queue.isEmpty() || !sameSet) list else st.queue
                 )
             }
-            // Очередь из state заливаем в ExoPlayer сразу после скана
             val st = _state.value
             if (controller != null && !st.isPlaying && st.current == null && st.queue.isNotEmpty()) {
                 pushQueueToPlayer()
@@ -150,26 +147,27 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    // Новый трек из поиска/очереди: позиция сбрасывается (старт с 0:00)
     fun playTrackById(id: Long) {
         val st = _state.value
         val queue = if (st.queue.isNotEmpty()) st.queue else st.tracks
         val idx = queue.indexOfFirst { it.id == id }
         if (idx < 0) return
         _state.update { it.copy(queue = queue) }
-        pushQueueToPlayer()
+        pushQueueToPlayer(resetPosition = true)
         playAt(idx)
     }
 
     fun playTrack(index: Int) {
         _state.update { it.copy(queue = it.tracks) }
-        pushQueueToPlayer()
+        pushQueueToPlayer(resetPosition = true)
         playAt(index)
     }
 
     fun playQueue(list: List<AudioTrack>, startIndex: Int) {
         if (list.isEmpty()) return
         _state.update { it.copy(queue = list) }
-        pushQueueToPlayer()
+        pushQueueToPlayer(resetPosition = true)
         playAt(startIndex)
     }
 
@@ -180,7 +178,7 @@ class PlayerViewModel @Inject constructor(
         _state.update { it.copy(queueIndex = index) }
     }
 
-    // --- Управление очередью ---
+    // --- Управление очередью (позиция воспроизведения сохраняется) ---
 
     fun moveBySteps(trackId: Long, steps: Int) {
         val st = _state.value
@@ -215,19 +213,20 @@ class PlayerViewModel @Inject constructor(
     private fun applyQueue(q: List<AudioTrack>, curId: Long?) {
         val newIdx = curId?.let { id -> q.indexOfFirst { it.id == id } } ?: 0
         _state.update { it.copy(queue = q, queueIndex = newIdx.coerceAtLeast(0)) }
-        pushQueueToPlayer()
+        pushQueueToPlayer(resetPosition = false)
     }
 
-    // Заливка очереди в плеер. prepare() обязателен: без него ExoPlayer
-    // оставался в STATE_IDLE и play() уходил «в пустоту» (баг поиска и PLAY)
-    private fun pushQueueToPlayer() {
+    // Заливка очереди в плеер.
+    // resetPosition = true: новый список играем с нуля (фикс ZED-002).
+    // resetPosition = false: переупорядочивание — не сбиваем текущую позицию.
+    private fun pushQueueToPlayer(resetPosition: Boolean = false) {
         val c = controller ?: return
         val st = _state.value
         if (st.queue.isEmpty()) return
         c.setMediaItems(
             st.queue.map { it.toMediaItem() },
             st.queueIndex.coerceIn(0, st.queue.size - 1),
-            c.currentPosition.coerceAtLeast(0L)
+            if (resetPosition) 0L else c.currentPosition.coerceAtLeast(0L)
         )
         c.prepare()
     }
@@ -240,7 +239,7 @@ class PlayerViewModel @Inject constructor(
             c.pause()
         } else {
             if (_state.value.current == null && _state.value.queue.isNotEmpty()) {
-                if (c.mediaItemCount == 0) pushQueueToPlayer()
+                if (c.mediaItemCount == 0) pushQueueToPlayer(resetPosition = true)
                 c.seekToDefaultPosition(0)
                 c.play()
                 _state.update { it.copy(queueIndex = 0) }
