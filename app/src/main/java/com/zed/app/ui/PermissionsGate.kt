@@ -47,11 +47,19 @@ import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.delay
 
+// Снимок всех статусов разрешений
+private data class PermStatus(
+    val notif: Boolean,
+    val music: Boolean,
+    val alarm: Boolean,
+    val battery: Boolean,
+    val fullscreen: Boolean
+)
+
 // Экран первичных разрешений после онбординга.
-// СТАТУСЫ ОПРАШИВАЮТСЯ КАЖДЫЕ 500 МС: пункт сам становится «ДА» в тот же момент,
-// как разрешение выдано — диалогом, из шторки, из системных настроек или из
-// карточки приложения. Плюс перечитывание при возврате (ON_RESUME).
-// Если системный диалог подавлен (ранее «Запретить») — кнопка ведёт в карточку приложения.
+// ГЛАВНОЕ: статусы читаются ВНУТРИ remember(refresh) — чтение refresh
+// заставляет Compose перерисовать экран на каждый тик (2 Гц) и при возврате.
+// Без этого чтения «НЕТ» никогда не превращается в «ДА».
 @Composable
 fun PermissionsGate(onDone: () -> Unit) {
     val context = LocalContext.current
@@ -59,7 +67,7 @@ fun PermissionsGate(onDone: () -> Unit) {
 
     var refresh by remember { mutableIntStateOf(0) }
 
-    // Опрос статусов 2 Гц, пока экран открыт
+    // Опрос статусов каждые 500 мс, пока экран открыт
     LaunchedEffect(Unit) {
         while (true) {
             delay(500)
@@ -76,28 +84,31 @@ fun PermissionsGate(onDone: () -> Unit) {
         onDispose { owner?.lifecycle?.removeObserver(observer) }
     }
 
-    // Статусы (перечитываются на каждой рекомпозиции)
-    val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-    } else {
-        ContextCompat.getSystemService(context, NotificationManager::class.java)
-            ?.areNotificationsEnabled() ?: true
+    // ЧТЕНИЕ refresh внутри remember → рекомпозиция на каждый тик
+    val st = remember(refresh) {
+        val notif = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.getSystemService(context, NotificationManager::class.java)
+                ?.areNotificationsEnabled() ?: true
+        }
+        val music = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+        val alarm = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        val battery = context.getSystemService(PowerManager::class.java)
+            .isIgnoringBatteryOptimizations(context.packageName)
+        val fullscreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+            ContextCompat.getSystemService(context, NotificationManager::class.java)
+                ?.canUseFullScreenIntent() ?: true
+        PermStatus(notif, music, alarm, battery, fullscreen)
     }
-    val musicGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-    } else {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
-            PackageManager.PERMISSION_GRANTED
-    }
-    val alarmGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-        context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
-    val batteryOk = context.getSystemService(PowerManager::class.java)
-        .isIgnoringBatteryOptimizations(context.packageName)
-    val fullscreenOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
-        ContextCompat.getSystemService(context, NotificationManager::class.java)
-            ?.canUseFullScreenIntent() ?: true
 
     // Если системный диалог подавлен — открываем карточку приложения
     fun openAppDetails() {
@@ -147,12 +158,12 @@ fun PermissionsGate(onDone: () -> Unit) {
 
         PermRow(
             title = stringResource(R.string.perm_notifications),
-            granted = notifGranted,
+            granted = st.notif,
             onGrant = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         )
         PermRow(
             title = stringResource(R.string.perm_music),
-            granted = musicGranted,
+            granted = st.music,
             onGrant = {
                 val p = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Manifest.permission.READ_MEDIA_AUDIO
@@ -164,7 +175,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         )
         PermRow(
             title = stringResource(R.string.perm_alarms),
-            granted = alarmGranted,
+            granted = st.alarm,
             onGrant = {
                 runCatching {
                     context.startActivity(
@@ -178,7 +189,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         )
         PermRow(
             title = stringResource(R.string.perm_fullscreen),
-            granted = fullscreenOk,
+            granted = st.fullscreen,
             onGrant = {
                 runCatching {
                     context.startActivity(
@@ -192,7 +203,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         )
         PermRow(
             title = stringResource(R.string.perm_battery),
-            granted = batteryOk,
+            granted = st.battery,
             onGrant = {
                 runCatching {
                     context.startActivity(
