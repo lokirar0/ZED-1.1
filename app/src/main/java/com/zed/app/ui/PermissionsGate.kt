@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -44,17 +45,28 @@ import com.zed.app.R
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
+import kotlinx.coroutines.delay
 
-// Экран первичных разрешений после онбординга:
-// уведомления, музыка, точные будильники, игнор оптимизации батареи.
-// Статусы перечитываются при каждом возврате в приложение (ON_RESUME).
+// Экран первичных разрешений после онбординга.
+// Статусы ОПРАШИВАЮТСЯ РАЗ В СЕКУНДУ — пункт сам становится «ДА»,
+// как только разрешение выдано (диалогом, из шторки или из настроек).
+// Если системный диалог подавлен (ранее «Запретить навсегда») —
+// кнопка ведёт в карточку приложения.
 @Composable
 fun PermissionsGate(onDone: () -> Unit) {
     val context = LocalContext.current
     val colors = LocalZedColors.current
 
-    // Счётчик для перечитывания статусов после возвратов из системных экранов
     var refresh by remember { mutableIntStateOf(0) }
+
+    // Опрос статусов 1 Гц, пока экран открыт
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            refresh++
+        }
+    }
+    // Плюс перечитывание при возврате из системных экранов
     DisposableEffect(Unit) {
         val owner = context as? LifecycleOwner
         val observer = LifecycleEventObserver { _, event ->
@@ -64,7 +76,7 @@ fun PermissionsGate(onDone: () -> Unit) {
         onDispose { owner?.lifecycle?.removeObserver(observer) }
     }
 
-    // Текущие статусы (читаются на каждой рекомпозиции)
+    // Статусы (читаются на каждой рекомпозиции)
     val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
@@ -83,13 +95,34 @@ fun PermissionsGate(onDone: () -> Unit) {
         context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
     val batteryOk = context.getSystemService(PowerManager::class.java)
         .isIgnoringBatteryOptimizations(context.packageName)
+    val fullscreenOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+        ContextCompat.getSystemService(context, NotificationManager::class.java)
+            ?.canUseFullScreenIntent() ?: true
+
+    // Если диалог подавлен — открываем карточку приложения в настройках
+    fun openAppDetails() {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + context.packageName)
+                )
+            )
+        }
+    }
 
     val notifLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { refresh++ }
+    ) { ok ->
+        refresh++
+        if (!ok) openAppDetails()
+    }
     val musicLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { refresh++ }
+    ) { ok ->
+        refresh++
+        if (!ok) openAppDetails()
+    }
 
     Column(
         Modifier
@@ -98,7 +131,7 @@ fun PermissionsGate(onDone: () -> Unit) {
             .verticalScroll(rememberScrollState())
             .padding(ZedSpacing.xl)
     ) {
-        Spacer(Modifier.height(ZedSpacing.xxl))
+        Spacer(Modifier.height(ZedSpacing.xl))
         Text(
             text = stringResource(R.string.perm_title),
             style = MaterialTheme.typography.displaySmall,
@@ -112,13 +145,11 @@ fun PermissionsGate(onDone: () -> Unit) {
         )
         Spacer(Modifier.height(ZedSpacing.xl))
 
-        // Уведомления
         PermRow(
             title = stringResource(R.string.perm_notifications),
             granted = notifGranted,
             onGrant = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         )
-        // Музыка
         PermRow(
             title = stringResource(R.string.perm_music),
             granted = musicGranted,
@@ -131,7 +162,6 @@ fun PermissionsGate(onDone: () -> Unit) {
                 musicLauncher.launch(p)
             }
         )
-        // Точные будильники
         PermRow(
             title = stringResource(R.string.perm_alarms),
             granted = alarmGranted,
@@ -146,7 +176,21 @@ fun PermissionsGate(onDone: () -> Unit) {
                 }
             }
         )
-        // Игнор оптимизации батареи
+        // Полноэкранные оповещения: без них будильник курса не всплывает поверх блокировки
+        PermRow(
+            title = stringResource(R.string.perm_fullscreen),
+            granted = fullscreenOk,
+            onGrant = {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                            Uri.parse("package:" + context.packageName)
+                        )
+                    )
+                }
+            }
+        )
         PermRow(
             title = stringResource(R.string.perm_battery),
             granted = batteryOk,
@@ -165,7 +209,6 @@ fun PermissionsGate(onDone: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Spacer(Modifier.height(ZedSpacing.xl))
 
-        // Завершить (даже если что-то не выдано — не блокируем вход)
         TextButton(
             onClick = onDone,
             modifier = Modifier
