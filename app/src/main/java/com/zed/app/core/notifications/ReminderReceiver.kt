@@ -1,5 +1,6 @@
 package com.zed.app.core.notifications
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -19,14 +20,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Точка входа системных будильников: показывает уведомление и переставляет
-// себя дальше (цепочка). Работает при убитом процессе приложения.
+// Точка входа системных будильников: уведомления, полноэкранные алерты курсов,
+// snooze/dismiss, перестановка цепочек. Работает при убитом процессе.
 @AndroidEntryPoint
 class ReminderReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ZED_REMINDER"
         private const val NOTIF_COURSE_BASE = 4000
+        private const val SNOOZE_MINUTES = 5L
     }
 
     @Inject lateinit var habitRepository: HabitRepository
@@ -60,9 +62,40 @@ class ReminderReceiver : BroadcastReceiver() {
                         val courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1)
                         val doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1)
                         val dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1)
-                        // Сначала переставляем цепочку на следующий приём
+                        // Цепочка: сразу ставим следующий приём
                         if (courseId != -1) courseRepository.rescheduleReminders(courseId)
                         handleCourseDose(context, courseId, doseMin, dayEpoch.toLong())
+                    }
+                    ReminderScheduler.ACTION_SNOOZE -> {
+                        val notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1)
+                        NotificationHelper.cancel(context, notifId)
+                        ReminderScheduler.scheduleSnoozeFire(
+                            context = context,
+                            notifId = notifId,
+                            triggerAt = System.currentTimeMillis() + SNOOZE_MINUTES * 60_000L,
+                            courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1),
+                            doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1),
+                            dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1),
+                            title = intent.getStringExtra(ReminderScheduler.KEY_TITLE).orEmpty(),
+                            timeLabel = intent.getStringExtra(ReminderScheduler.KEY_TIME_LABEL).orEmpty()
+                        )
+                    }
+                    ReminderScheduler.ACTION_SNOOZE_FIRE -> {
+                        // Повторный показ будильника после snooze
+                        showCourseAlarm(
+                            context = context,
+                            notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1),
+                            courseId = intent.getIntExtra(ReminderScheduler.KEY_COURSE_ID, -1),
+                            doseMin = intent.getIntExtra(ReminderScheduler.KEY_DOSE_MIN, -1),
+                            dayEpoch = intent.getIntExtra(ReminderScheduler.KEY_DOSE_DAY, -1).toLong(),
+                            title = intent.getStringExtra(ReminderScheduler.KEY_TITLE).orEmpty(),
+                            timeLabel = intent.getStringExtra(ReminderScheduler.KEY_TIME_LABEL).orEmpty()
+                        )
+                    }
+                    ReminderScheduler.ACTION_DISMISS -> {
+                        val notifId = intent.getIntExtra(ReminderScheduler.KEY_NOTIF_ID, -1)
+                        NotificationHelper.cancel(context, notifId)
+                        ReminderScheduler.cancelSnoozeFire(context, notifId)
                     }
                 }
             } catch (t: Throwable) {
@@ -74,6 +107,9 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     // --- обработчики ---
+
+    private suspend fun soundUri(): String =
+        settingsRepository.settings.first().notificationSoundUri
 
     private suspend fun notificationsEnabled(): Boolean =
         settingsRepository.settings.first().notificationsEnabled
@@ -90,9 +126,9 @@ class ReminderReceiver : BroadcastReceiver() {
             context = context,
             notificationId = 2000 + habitId,
             title = context.getString(R.string.notif_habit_title),
-            text = context.getString(R.string.notif_habit_body, habit.title)
+            text = context.getString(R.string.notif_habit_body, habit.title),
+            soundUri = soundUri()
         )
-        Log.d(TAG, "habit $habitId notified")
     }
 
     private suspend fun handleHabitsSummary(context: Context) {
@@ -103,9 +139,9 @@ class ReminderReceiver : BroadcastReceiver() {
                 context = context,
                 notificationId = NotificationHelper.ID_HABITS,
                 title = context.getString(R.string.notif_title),
-                text = context.getString(R.string.notif_body, pendingCount)
+                text = context.getString(R.string.notif_body, pendingCount),
+                soundUri = soundUri()
             )
-            Log.d(TAG, "habits summary notified: $pendingCount pending")
         }
     }
 
@@ -132,30 +168,87 @@ class ReminderReceiver : BroadcastReceiver() {
             context = context,
             notificationId = NotificationHelper.ID_CREDITS,
             title = context.getString(R.string.notif_credits_title),
-            text = text
+            text = text,
+            soundUri = soundUri()
         )
-        Log.d(TAG, "credits notified: ${first.first}")
     }
 
-    // Приём курса: пуш только если день актуальный и доза ещё не отмечена
+    // Приём курса: полноэкранный будильник, если день актуален и доза не принята
     private suspend fun handleCourseDose(context: Context, courseId: Int, doseMin: Int, dayEpoch: Long) {
         if (courseId == -1 || doseMin == -1 || !notificationsEnabled()) return
         if (dayEpoch != LocalDate.now().toEpochDay()) {
-            Log.d(TAG, "course $courseId dose stale (day=$dayEpoch) — silent")
+            Log.d(TAG, "course $courseId dose stale — silent")
             return
         }
         val course = courseRepository.getCourse(courseId) ?: return
         if (courseRepository.isDoseTaken(courseId, dayEpoch, doseMin)) {
-            Log.d(TAG, "course $courseId dose $doseMin already taken — silent")
+            Log.d(TAG, "course $courseId dose $doseMin taken — silent")
             return
         }
         val time = DoseScheduleCalculator.formatMinutes(doseMin)
-        NotificationHelper.show(
+        showCourseAlarm(
             context = context,
-            notificationId = NOTIF_COURSE_BASE + courseId * 100 + doseMin / 60,
-            title = context.getString(R.string.notif_course_title),
-            text = context.getString(R.string.notif_course_body, course.title, time)
+            notifId = NOTIF_COURSE_BASE + courseId * 100 + doseMin / 60,
+            courseId = courseId,
+            doseMin = doseMin,
+            dayEpoch = dayEpoch,
+            title = course.title,
+            timeLabel = time
         )
-        Log.d(TAG, "course $courseId dose $doseMin notified")
+    }
+
+    // Сборка и показ алерта: fullScreenIntent на ZedAlarmActivity + кнопки snooze/dismiss
+    private suspend fun showCourseAlarm(
+        context: Context,
+        notifId: Int,
+        courseId: Int,
+        doseMin: Int,
+        dayEpoch: Long,
+        title: String,
+        timeLabel: String
+    ) {
+        if (notifId == -1) return
+        val text = context.getString(R.string.notif_course_body, title, timeLabel)
+
+        val payload = Intent(context, ReminderReceiver::class.java)
+        payload.putExtra(ReminderScheduler.KEY_NOTIF_ID, notifId)
+        payload.putExtra(ReminderScheduler.KEY_COURSE_ID, courseId)
+        payload.putExtra(ReminderScheduler.KEY_DOSE_MIN, doseMin)
+        payload.putExtra(ReminderScheduler.KEY_DOSE_DAY, dayEpoch.toInt())
+        payload.putExtra(ReminderScheduler.KEY_TITLE, title)
+        payload.putExtra(ReminderScheduler.KEY_TIME_LABEL, timeLabel)
+
+        val fullScreen = PendingIntent.getActivity(
+            context,
+            notifId,
+            Intent(context, ZedAlarmActivity::class.java).putExtras(payload.extras!!),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val snoozePi = PendingIntent.getBroadcast(
+            context,
+            notifId + 1,
+            payload.setAction(ReminderScheduler.ACTION_SNOOZE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val dismissPi = PendingIntent.getBroadcast(
+            context,
+            notifId + 2,
+            payload.setAction(ReminderScheduler.ACTION_DISMISS),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        NotificationHelper.showAlarm(
+            context = context,
+            notificationId = notifId,
+            title = context.getString(R.string.notif_course_title),
+            text = text,
+            soundUri = soundUri(),
+            fullScreenIntent = fullScreen,
+            actions = listOf(
+                context.getString(R.string.alarm_snooze) to snoozePi,
+                context.getString(R.string.alarm_dismiss) to dismissPi
+            )
+        )
+        Log.d(TAG, "course alarm shown: $title $timeLabel")
     }
 }
