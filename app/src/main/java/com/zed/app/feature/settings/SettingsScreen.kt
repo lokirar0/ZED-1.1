@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -128,7 +129,7 @@ fun SettingsScreen(
         }
     }
 
-    // Системный picker звуков (для пункта «Другой звук…»)
+    // Системный picker звуков (пункт «Другой звук…»)
     val soundLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -391,12 +392,10 @@ private fun SoundSheet(
     val context = LocalContext.current
     val colors = LocalZedColors.current
 
-    // Предпрослушивание: держим один Ringtone, глушим при выходе из листа
+    // Предпрослушивание: один Ringtone, глушим при выходе из листа
     var preview by remember { mutableStateOf<Ringtone?>(null) }
     DisposableEffect(Unit) {
-        onDispose {
-            runCatching { preview?.stop() }
-        }
+        onDispose { runCatching { preview?.stop() } }
     }
 
     // Встроенные звуки ZED из res/raw
@@ -409,9 +408,7 @@ private fun SoundSheet(
             "PULSE" to R.raw.pulse_np,
             "SHAKE" to R.raw.shake_np,
             "SAW" to R.raw.saw_np
-        ).map { (label, res) ->
-            SoundOption(label, "$zedPrefix/$res")
-        }
+        ).map { (label, res) -> SoundOption(label, "$zedPrefix/$res") }
     }
 
     ModalBottomSheet(
@@ -482,7 +479,7 @@ private fun SoundSheet(
     }
 }
 
-// Строка звука: название + кнопка прослушивания + индикатор выбора
+// Строка звука: название + прослушивание + квадрат-индикатор выбора
 @Composable
 private fun SoundRow(
     label: String,
@@ -506,37 +503,18 @@ private fun SoundRow(
         )
         if (onPreview != null) {
             IconButton(onClick = onPreview) {
-                Icon(Icons.Outlined.PlayArrow, null, tint = colors.textSecondary, modifier = Modifier.padding(end = ZedSpacing.xs).then(Modifier.matchParentSize().let { Modifier }))
+                Icon(Icons.Outlined.PlayArrow, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
             }
         }
         Box(
             Modifier
-                .padding(start = ZedSpacing.xs)
+                .size(16.dp)
                 .then(
-                    if (selected) {
-                        Modifier
-                            .padding(4.dp)
-                            .background(colors.accent, RoundedCornerShape(ZedRadius.xs))
-                            .then(Modifier.size10())
-                    } else {
-                        Modifier
-                            .padding(4.dp)
-                            .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.xs))
-                            .then(Modifier.size10())
-                    }
+                    if (selected) Modifier.background(colors.accent, RoundedCornerShape(ZedRadius.xs))
+                    else Modifier.border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.xs))
                 )
         )
     }
-}
-
-private fun Modifier.size10(): Modifier =
-    this.then(androidx.compose.foundation.layout.sizeModifier10)
-
-private val androidx.compose.foundation.layout.sizeModifier10: Modifier
-    get() = androidx.compose.foundation.layout.SizeHolder10.mod
-
-private object androidx.compose.foundation.layout.SizeHolder10 {
-    val mod: Modifier = Modifier
 }
 
 @Composable
