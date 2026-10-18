@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_idle_queue">QUEUE: %1$d TRACKS — PRESS PLAY</string>
+    <string name="perm_title">PERMISSIONS</string>
+    <string name="perm_body">ZED works offline. Permissions are needed for reminders, music and stable background operation.</string>
+    <string name="perm_notifications">Notifications</string>
+    <string name="perm_music">Music access</string>
+    <string name="perm_alarms">Exact alarms</string>
+    <string name="perm_battery">No battery limits</string>
+    <string name="perm_grant">GRANT</string>
+    <string name="perm_yes">YES</string>
+    <string name="perm_no">NO</string>
+    <string name="perm_done">DONE</string>
+</resources>
