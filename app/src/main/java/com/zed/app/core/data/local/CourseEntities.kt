@@ -56,6 +56,14 @@ interface CourseDao {
     @Upsert
     suspend fun upsert(course: CourseEntity): Long
 
+    // Бэкап: массовая вставка и полная очистка (очистка курсов
+    // каскадно удаляет dose_marks через FK ON DELETE CASCADE)
+    @Insert
+    suspend fun insertAll(list: List<CourseEntity>)
+
+    @Query("DELETE FROM courses")
+    suspend fun clear()
+
     @Query("DELETE FROM courses WHERE id = :id")
     suspend fun delete(id: Int)
 }
@@ -73,6 +81,10 @@ interface DoseDao {
 
     @Insert
     suspend fun insert(entity: DoseMarkEntity)
+
+    // Бэкап: массовая вставка отметок
+    @Insert
+    suspend fun insertAll(list: List<DoseMarkEntity>)
 
     @Query("DELETE FROM dose_marks WHERE courseId = :courseId AND day = :day AND doseMinutes = :doseMinutes")
     suspend fun delete(courseId: Int, day: Long, doseMinutes: Int)
