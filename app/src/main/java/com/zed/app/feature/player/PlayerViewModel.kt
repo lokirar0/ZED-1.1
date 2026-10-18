@@ -26,6 +26,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -395,6 +396,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    // Тикер позиции: 2 раза в секунду и ТОЛЬКО во время воспроизведения
     private fun startStopTicker(playing: Boolean) {
         if (playing && tickerJob == null) {
             tickerJob = viewModelScope.launch {
