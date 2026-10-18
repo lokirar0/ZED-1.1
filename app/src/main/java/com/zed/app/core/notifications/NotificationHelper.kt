@@ -116,7 +116,7 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
-            .setContentContentSafe(text)
+            .setContentText(text)
             .build()
         compat.notify(notificationId, notification)
     }
@@ -153,7 +153,3 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(notificationId)
     }
 }
-
-// Внутренний хелпер: setContentText без риска null
-private fun NotificationCompat.Builder.setContentContentSafe(text: String): NotificationCompat.Builder =
-    this.setContentText(text)
