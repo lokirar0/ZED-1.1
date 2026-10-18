@@ -12,9 +12,15 @@ import androidx.core.app.NotificationManagerCompat
 import com.zed.app.R
 
 // Каналы и показ уведомлений ZED.
-// Звук — из настроек (встроенные ZED / системный), вибрация — ритм-паттерн
-// VIBRO_RHYTHM (пульс-пульс-пульс… пауза), единый для канала и для
-// полноэкранного будильника (там он крутится циклом, пока экран открыт).
+//
+// ЗВУК: хранится и применяется в устойчивой форме
+// «android.resource://пакет/raw/имя_файла». Числовая форма
+// («.../2131756032») нормализуется автоматически — OxygenOS и ряд оболочек
+// молча откатывают числовой Uri на системный звук.
+// Канал будильников использует USAGE_ALARM (поток будильников, надёжнее и громче).
+//
+// ВИБРАЦИЯ: ритм-паттерн VIBRO_RHYTHM (пульс-пульс-пульс… пауза) —
+// единый для каналов и полноэкранного будильника.
 object NotificationHelper {
 
     const val CHANNEL_REMINDERS = "zed_reminders"
@@ -25,19 +31,37 @@ object NotificationHelper {
     // Ритм вибрации «в такт»: три коротких пульса, пауза, повтор
     val VIBRO_RHYTHM: LongArray = longArrayOf(0, 100, 100, 100, 100, 100, 300)
 
+    // Приводит Uri звука к форме raw/имя. Числовой id → имя ресурса.
+    fun normalizeSoundUri(context: Context, uri: String): String {
+        if (uri.isBlank()) return uri
+        return runCatching {
+            val parsed = Uri.parse(uri)
+            val last = parsed.lastPathSegment ?: return@runCatching uri
+            // Уже именованная форма (raw/pace_np) — не трогаем
+            if (last.toIntOrNull() == null) return@runCatching uri
+            val id = last.toInt()
+            val name = context.resources.getResourceEntryName(id)
+            "android.resource://${context.packageName}/raw/$name"
+        }.getOrDefault(uri)
+    }
+
     fun ensureChannels(context: Context, soundUri: String?) {
         val manager = context.getSystemService(NotificationManager::class.java)
         ensureChannel(
             context, manager, CHANNEL_REMINDERS,
             context.getString(R.string.notif_channel),
             NotificationManager.IMPORTANCE_HIGH,
-            soundUri, bypassDnd = false
+            soundUri,
+            bypassDnd = false,
+            usage = AudioAttributes.USAGE_NOTIFICATION
         )
         ensureChannel(
             context, manager, CHANNEL_ALARMS,
             context.getString(R.string.notif_alarm_channel),
             NotificationManager.IMPORTANCE_HIGH,
-            soundUri, bypassDnd = true
+            soundUri,
+            bypassDnd = true,
+            usage = AudioAttributes.USAGE_ALARM
         )
     }
 
@@ -48,9 +72,11 @@ object NotificationHelper {
         name: String,
         importance: Int,
         soundUri: String?,
-        bypassDnd: Boolean
+        bypassDnd: Boolean,
+        usage: Int
     ) {
-        val desired: Uri? = soundUri?.takeIf { it.isNotBlank() }
+        val normalized = normalizeSoundUri(context, soundUri.orEmpty())
+        val desired: Uri? = normalized.takeIf { it.isNotBlank() }
             ?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val existing = manager.getNotificationChannel(id)
         if (existing != null) {
@@ -69,7 +95,7 @@ object NotificationHelper {
             channel.setSound(
                 desired,
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setUsage(usage)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
@@ -90,7 +116,7 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
-            .setContentText(text)
+            .setContentContentSafe(text)
             .build()
         compat.notify(notificationId, notification)
     }
@@ -127,3 +153,7 @@ object NotificationHelper {
         NotificationManagerCompat.from(context).cancel(notificationId)
     }
 }
+
+// Внутренний хелпер: setContentText без риска null
+private fun NotificationCompat.Builder.setContentContentSafe(text: String): NotificationCompat.Builder =
+    this.setContentText(text)
