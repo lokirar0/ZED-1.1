@@ -1,7 +1,11 @@
 package com.zed.app.feature.settings
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +59,7 @@ import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.launch
 
+@Suppress("DEPRECATION")
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -95,6 +100,27 @@ fun SettingsScreen(
         }
     }
 
+    // Системный picker звуков уведомления: видит и пользовательские рингтоны (pace-np и т.д.)
+    val soundUri = settings.notificationSoundUri
+    val soundName = remember(soundUri) {
+        if (soundUri.isBlank()) {
+            context.getString(R.string.sound_default)
+        } else {
+            runCatching {
+                RingtoneManager.getRingtone(context, Uri.parse(soundUri))?.getTitle(context)
+            }.getOrNull() ?: context.getString(R.string.sound_default)
+        }
+    }
+    val soundLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val picked: Uri? = result.data
+                ?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            viewModel.setNotificationSound(picked?.toString() ?: "")
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -119,11 +145,10 @@ fun SettingsScreen(
             // --- ТЕМА ---
             SectionLabel(stringResource(R.string.settings_theme))
             ThemeMode.entries.forEach { mode ->
-                val click = rememberHapticClick { viewModel.setThemeMode(mode) }
                 SettingsRow(
                     title = stringResource(mode.titleRes()),
                     selected = settings.themeMode == mode,
-                    onClick = click
+                    onClick = rememberHapticClick { viewModel.setThemeMode(mode) }
                 )
             }
 
@@ -133,17 +158,16 @@ fun SettingsScreen(
             SectionLabel(stringResource(R.string.settings_language))
             listOf("system" to R.string.lang_system, "ru" to R.string.lang_ru, "en" to R.string.lang_en)
                 .forEach { (code, labelRes) ->
-                    val click = rememberHapticClick { viewModel.setLanguage(code) }
                     SettingsRow(
                         title = stringResource(labelRes),
                         selected = settings.language == code,
-                        onClick = click
+                        onClick = rememberHapticClick { viewModel.setLanguage(code) }
                     )
                 }
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- УВЕДОМЛЕНИЯ ---
+            // --- УВЕДОМЛЕНИЯ: тумблер, звук, полноэкранные, тест ---
             SectionLabel(stringResource(R.string.settings_notifications))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
@@ -175,19 +199,51 @@ fun SettingsScreen(
                 )
             }
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
-                val testClick = rememberHapticClick { viewModel.sendTestNotification() }
-                TextButton(
-                    onClick = testClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.md))
-                ) {
-                    Text(
-                        text = stringResource(R.string.notif_test_button),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colors.textSecondary
-                    )
+                // Звук уведомлений (глобально: курсы, привычки, кредиты)
+                DataButton(
+                    label = stringResource(R.string.settings_sound) + ": " + soundName,
+                    color = colors.textSecondary,
+                    borderColor = colors.borderVisible,
+                    onClick = rememberHapticClick {
+                        soundLauncher.launch(
+                            Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                if (soundUri.isNotBlank()) {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(soundUri))
+                                }
+                            }
+                        )
+                    }
+                )
+                // Полноэкранные оповещения (Android 14+): как у будильников
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val nm = context.getSystemService(NotificationManager::class.java)
+                    if (!nm.canUseFullScreenIntent()) {
+                        DataButton(
+                            label = stringResource(R.string.settings_fullscreen),
+                            color = colors.warning,
+                            borderColor = colors.warning,
+                            onClick = rememberHapticClick {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(
+                                            android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                            Uri.parse("package:" + context.packageName)
+                                        )
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
+                DataButton(
+                    label = stringResource(R.string.notif_test_button),
+                    color = colors.textSecondary,
+                    borderColor = colors.borderVisible,
+                    onClick = rememberHapticClick { viewModel.sendTestNotification() }
+                )
             }
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
@@ -217,7 +273,7 @@ fun SettingsScreen(
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- О ПРИЛОЖЕНИИ: отчёт, аналитика, версия ---
+            // --- О ПРИЛОЖЕНИИ ---
             SectionLabel(stringResource(R.string.settings_about))
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
                 DataButton(
