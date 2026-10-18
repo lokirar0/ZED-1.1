@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_idle_queue">ОЧЕРЕДЬ: %1$d ТРЕКОВ — НАЖМИТЕ PLAY</string>
+    <string name="perm_title">РАЗРЕШЕНИЯ</string>
+    <string name="perm_body">ZED работает офлайн. Разрешения нужны для напоминаний, музыки и стабильной работы в фоне.</string>
+    <string name="perm_notifications">Уведомления</string>
+    <string name="perm_music">Доступ к музыке</string>
+    <string name="perm_alarms">Точные будильники</string>
+    <string name="perm_battery">Фон без ограничений</string>
+    <string name="perm_grant">ВЫДАТЬ</string>
+    <string name="perm_yes">ДА</string>
+    <string name="perm_no">НЕТ</string>
+    <string name="perm_done">ЗАВЕРШИТЬ</string>
+</resources>
