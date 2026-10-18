@@ -109,6 +109,7 @@ class PlayerViewModel @Inject constructor(
                 if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
                     pushQueueToPlayer()
                 }
+                // Трек из поиска: дожидаемся библиотеку и играем
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
@@ -141,8 +142,7 @@ class PlayerViewModel @Inject constructor(
                     queue = if (st.queue.isEmpty() || !sameSet) list else st.queue
                 )
             }
-            // ГЛАВНЫЙ ФИКС: очередь из state заливаем в ExoPlayer сразу после скана,
-            // иначе кнопка PLAY играла в пустой таймлайн, пока не выберешь трек вручную
+            // Очередь из state заливаем в ExoPlayer сразу после скана
             val st = _state.value
             if (controller != null && !st.isPlaying && st.current == null && st.queue.isNotEmpty()) {
                 pushQueueToPlayer()
@@ -218,6 +218,8 @@ class PlayerViewModel @Inject constructor(
         pushQueueToPlayer()
     }
 
+    // Заливка очереди в плеер. prepare() обязателен: без него ExoPlayer
+    // оставался в STATE_IDLE и play() уходил «в пустоту» (баг поиска и PLAY)
     private fun pushQueueToPlayer() {
         val c = controller ?: return
         val st = _state.value
@@ -227,6 +229,7 @@ class PlayerViewModel @Inject constructor(
             st.queueIndex.coerceIn(0, st.queue.size - 1),
             c.currentPosition.coerceAtLeast(0L)
         )
+        c.prepare()
     }
 
     // --- Воспроизведение ---
@@ -237,7 +240,6 @@ class PlayerViewModel @Inject constructor(
             c.pause()
         } else {
             if (_state.value.current == null && _state.value.queue.isNotEmpty()) {
-                // Страховка: сначала убеждаемся, что таймлайн не пуст
                 if (c.mediaItemCount == 0) pushQueueToPlayer()
                 c.seekToDefaultPosition(0)
                 c.play()
