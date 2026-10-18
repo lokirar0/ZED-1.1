@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -151,19 +152,34 @@ fun CourseEditorScreen(
 
             Spacer(Modifier.height(ZedSpacing.md))
 
-            // Интервал приёмов в часах
-            OutlinedTextField(
-                value = state.intervalHoursText,
-                onValueChange = viewModel::onIntervalChange,
-                label = { Text(stringResource(R.string.editor_course_interval)) },
-                singleLine = true,
-                textStyle = ZedDataNumber,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = RoundedCornerShape(ZedRadius.md),
-                colors = fieldColors(),
-                isError = state.intervalError,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Интервал: ЧАСЫ + МИНУТЫ (например 2 ч 30 м)
+            Row(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = state.intervalHoursText,
+                    onValueChange = viewModel::onIntervalHoursChange,
+                    label = { Text(stringResource(R.string.editor_interval_hours)) },
+                    singleLine = true,
+                    textStyle = ZedDataNumber,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(ZedRadius.md),
+                    colors = fieldColors(),
+                    isError = state.intervalError,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(ZedSpacing.md))
+                OutlinedTextField(
+                    value = state.intervalMinutesText,
+                    onValueChange = viewModel::onIntervalMinutesChange,
+                    label = { Text(stringResource(R.string.editor_interval_minutes)) },
+                    singleLine = true,
+                    textStyle = ZedDataNumber,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(ZedRadius.md),
+                    colors = fieldColors(),
+                    isError = state.intervalError,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             if (state.intervalError) {
                 Text(
                     text = stringResource(R.string.editor_error_interval),
@@ -175,7 +191,7 @@ fun CourseEditorScreen(
 
             Spacer(Modifier.height(ZedSpacing.md))
 
-            // Время первого приёма (далее с шагом интервала)
+            // Время первого приёма (якорь расписания)
             EditorRow(
                 label = stringResource(R.string.editor_course_first),
                 value = DoseScheduleCalculator.formatMinutes(state.firstDoseMinutes),
@@ -236,7 +252,9 @@ fun CourseEditorScreen(
                     val utc = datePickerState.selectedDateMillis
                     if (utc != null) {
                         val localDay = Instant.ofEpochMilli(utc).atZone(ZoneOffset.UTC).toLocalDate()
-                        viewModel.setStartDate(viewModel.localDayMillis(localDay.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))
+                        viewModel.setStartDate(
+                            localDay.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        )
                     }
                     showDatePicker = false
                 }) {
