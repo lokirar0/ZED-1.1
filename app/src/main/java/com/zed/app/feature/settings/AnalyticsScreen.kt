@@ -40,13 +40,14 @@ import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-// Экран «Активность и аналитика»: сессии, сравнение месяцев, цели привычек
+// Экран «Активность и аналитика»: сессии, сравнение месяцев, цели, ПРОПУСКИ КУРСОВ
 @Composable
 fun AnalyticsScreen(
     onBack: () -> Unit,
     viewModel: AnalyticsViewModel = hiltViewModel()
 ) {
     val s by viewModel.state.collectAsStateWithLifecycle()
+    val cs by viewModel.courseStats.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
 
     Column(
@@ -74,7 +75,7 @@ fun AnalyticsScreen(
             Modifier.padding(ZedSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
         ) {
-            // --- Карточка активности: дни, время, запуски + точечная сетка месяца ---
+            // --- Активность за месяц ---
             Card(
                 colors = CardDefaults.cardColors(containerColor = colors.surface),
                 shape = RoundedCornerShape(ZedRadius.md),
@@ -105,7 +106,6 @@ fun AnalyticsScreen(
                         }
                     }
                     Spacer(Modifier.height(ZedSpacing.md))
-                    // Точечная сетка дней месяца
                     s.dayFlags.chunked(7).forEach { rowFlags ->
                         Row(
                             Modifier.fillMaxWidth(),
@@ -130,27 +130,15 @@ fun AnalyticsScreen(
                     Row(Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.act_time), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                            Text(
-                                fmtHm(s.totalSeconds),
-                                style = ZedDataNumber,
-                                color = colors.textPrimary
-                            )
+                            Text(fmtHm(s.totalSeconds), style = ZedDataNumber, color = colors.textPrimary)
                         }
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.act_avg), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                            Text(
-                                fmtMs(s.avgSeconds),
-                                style = ZedDataNumber,
-                                color = colors.textPrimary
-                            )
+                            Text(fmtMs(s.avgSeconds), style = ZedDataNumber, color = colors.textPrimary)
                         }
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.act_launches), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                            Text(
-                                s.launches.toString(),
-                                style = ZedDataNumber,
-                                color = colors.textPrimary
-                            )
+                            Text(s.launches.toString(), style = ZedDataNumber, color = colors.textPrimary)
                         }
                     }
                 }
@@ -207,13 +195,93 @@ fun AnalyticsScreen(
                 }
             }
 
-            // --- Цели по привычкам ---
+            // --- Курсы: пропущенные приёмы и дни ---
             Card(
                 colors = CardDefaults.cardColors(containerColor = colors.surface),
                 shape = RoundedCornerShape(ZedRadius.md),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 border = BorderStroke(1.dp, colors.borderVisible),
                 modifier = Modifier.fillMaxWidth().zedAppear(2)
+            ) {
+                Column(Modifier.padding(ZedSpacing.lg)) {
+                    Text(
+                        text = stringResource(R.string.stat_courses),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textDisabled
+                    )
+                    Spacer(Modifier.height(ZedSpacing.md))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = cs.totalMissed.toString(),
+                            style = MaterialTheme.typography.displayMedium,
+                            color = if (cs.totalMissed > 0) colors.accent else colors.success,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = stringResource(R.string.stat_missed_days),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.textDisabled
+                            )
+                            Text(
+                                text = cs.totalMissedDays.toString(),
+                                style = ZedDataNumber,
+                                color = colors.textPrimary
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.stat_missed_total),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textDisabled
+                    )
+                    Spacer(Modifier.height(ZedSpacing.md))
+
+                    if (cs.rows.isEmpty()) {
+                        Text("∅", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                    }
+                    cs.rows.forEach { row ->
+                        Column(Modifier.fillMaxWidth().padding(vertical = ZedSpacing.xxs)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = row.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.textPrimary,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = stringResource(R.string.stat_missed_row, row.missedTotal, row.missedDays),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (row.missedTotal > 0) colors.accent else colors.success
+                                )
+                            }
+                            if (row.lastMissLabel != null) {
+                                Text(
+                                    text = stringResource(R.string.stat_last_miss, row.lastMissLabel!!),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.textDisabled
+                                )
+                            }
+                        }
+                    }
+                    if (cs.rows.isNotEmpty() && cs.totalMissed == 0) {
+                        Text(
+                            text = stringResource(R.string.stat_no_misses),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.success
+                        )
+                    }
+                }
+            }
+
+            // --- Цели по привычкам ---
+            Card(
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                shape = RoundedCornerShape(ZedRadius.md),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, colors.borderVisible),
+                modifier = Modifier.fillMaxWidth().zedAppear(3)
             ) {
                 Column(Modifier.padding(ZedSpacing.lg)) {
                     Text(
@@ -288,7 +356,6 @@ fun AnalyticsScreen(
     }
 }
 
-// 3725 c → "1h 02m" / «1 ч 02 мин» через строки не тянем: формат универсальный
 private fun fmtHm(seconds: Long): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
