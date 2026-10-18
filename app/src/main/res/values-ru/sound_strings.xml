@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Канал будильников курсов -->
     <string name="notif_alarm_channel">Будильники курсов</string>
+
+    <!-- Звук уведомлений -->
     <string name="settings_sound">ЗВУК</string>
     <string name="sound_default">Стандартный</string>
-    <string name="settings_fullscreen">РАЗРЕШИТЬ ПОЛНОЭКРАННЫЕ ОПОВЕЩЕНИЯ</string>
-    <string name="alarm_snooze">ПОДОЖДАТЬ 5 МИН</string>
-    <string name="alarm_dismiss">ОТКЛЮЧИТЬ</string>
     <string name="sound_zed">ЗВУКИ ZED</string>
     <string name="sound_system">СИСТЕМНЫЕ</string>
     <string name="sound_other">Другой звук…</string>
+
+    <!-- Полноэкранные оповещения -->
+    <string name="settings_fullscreen">РАЗРЕШИТЬ ПОЛНОЭКРАННЫЕ ОПОВЕЩЕНИЯ</string>
+    <string name="perm_fullscreen">Полноэкранные оповещения</string>
+
+    <!-- Полноэкранный будильник -->
+    <string name="alarm_snooze">ПОДОЖДАТЬ 5 МИН</string>
+    <string name="alarm_dismiss">ОТКЛЮЧИТЬ</string>
+
+    <!-- Редактор курса: интервал часами и минутами -->
+    <string name="editor_interval_hours">ИНТЕРВАЛ (ЧАСЫ)</string>
+    <string name="editor_interval_minutes">ИНТЕРВАЛ (МИН)</string>
 </resources>
