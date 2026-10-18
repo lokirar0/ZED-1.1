@@ -8,8 +8,8 @@ import android.os.Build
 import android.util.Log
 import java.time.ZonedDateTime
 
-// ВСЕ напоминания ZED — на системном AlarmManager (exact RTC_WAKEUP):
-// привычки (глобально и персонально), кредиты, приёмы курсов.
+// ВСЕ напоминания ZED — на системном AlarmManager (exact RTC_WAKEUP).
+// Цепочки: привычки, кредиты, приёмы курсов, snooze-повторы будильника.
 object ReminderScheduler {
 
     private const val TAG = "ZED_REMINDER"
@@ -18,24 +18,29 @@ object ReminderScheduler {
     const val ACTION_HABITS_SUMMARY = "zed.action.HABITS_SUMMARY"
     const val ACTION_CREDITS = "zed.action.CREDITS"
     const val ACTION_COURSE_DOSE = "zed.action.COURSE_DOSE"
+    const val ACTION_SNOOZE = "zed.action.SNOOZE"
+    const val ACTION_SNOOZE_FIRE = "zed.action.SNOOZE_FIRE"
+    const val ACTION_DISMISS = "zed.action.DISMISS"
 
     const val KEY_HABIT_ID = "habit_id"
     const val KEY_TIME = "time_minutes"
     const val KEY_COURSE_ID = "course_id"
     const val KEY_DOSE_MIN = "dose_min"
     const val KEY_DOSE_DAY = "dose_day"
+    const val KEY_NOTIF_ID = "notif_id"
+    const val KEY_TITLE = "payload_title"
+    const val KEY_TIME_LABEL = "payload_time"
 
     private const val CODE_SUMMARY = 1001
     private const val CODE_CREDITS = 1002
     private const val CODE_HABIT_BASE = 2000
     private const val CODE_COURSE_BASE = 3000
+    private const val CODE_SNOOZE_BASE = 5000
 
-    // Глобально: сводка привычек в 20:00
     fun scheduleHabits(context: Context) {
         setAlarm(context, ACTION_HABITS_SUMMARY, CODE_SUMMARY, nextTriggerAt(20, 0))
     }
 
-    // Глобально: кредиты в 09:00
     fun scheduleCredits(context: Context) {
         setAlarm(context, ACTION_CREDITS, CODE_CREDITS, nextTriggerAt(9, 0))
     }
@@ -50,7 +55,6 @@ object ReminderScheduler {
         cancelAlarm(context, ACTION_CREDITS, CODE_CREDITS)
     }
 
-    // Персональное напоминание привычки
     fun scheduleHabitReminder(context: Context, habitId: Int, timeMinutes: Int) {
         setAlarm(
             context = context,
@@ -65,7 +69,6 @@ object ReminderScheduler {
         cancelAlarm(context, ACTION_HABIT_TIME, CODE_HABIT_BASE + habitId)
     }
 
-    // Будильник ближайшего приёма курса (цепочка: каждый выстрел ставит следующий)
     fun scheduleCourseDose(
         context: Context,
         courseId: Int,
@@ -88,6 +91,48 @@ object ReminderScheduler {
 
     fun cancelCourseDose(context: Context, courseId: Int) {
         cancelAlarm(context, ACTION_COURSE_DOSE, CODE_COURSE_BASE + courseId)
+    }
+
+    // Snooze: повторный показ будильника через N минут (кнопка «ПОДОЖДАТЬ»)
+    fun scheduleSnoozeFire(
+        context: Context,
+        notifId: Int,
+        triggerAt: Long,
+        courseId: Int,
+        doseMin: Int,
+        dayEpoch: Int,
+        title: String,
+        timeLabel: String
+    ) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ReminderReceiver::class.java)
+            .setAction(ACTION_SNOOZE_FIRE)
+            .putExtra(KEY_NOTIF_ID, notifId)
+            .putExtra(KEY_COURSE_ID, courseId)
+            .putExtra(KEY_DOSE_MIN, doseMin)
+            .putExtra(KEY_DOSE_DAY, dayEpoch)
+            .putExtra(KEY_TITLE, title)
+            .putExtra(KEY_TIME_LABEL, timeLabel)
+        val pi = PendingIntent.getBroadcast(
+            context,
+            CODE_SNOOZE_BASE + notifId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (canExact(am)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        Log.d(TAG, "snooze scheduled notif=$notifId at=$triggerAt")
+    }
+
+    fun cancelSnoozeFire(context: Context, notifId: Int) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = PendingIntent.getBroadcast(
+            context,
+            CODE_SNOOZE_BASE + notifId,
+            Intent(context, ReminderReceiver::class.java).setAction(ACTION_SNOOZE_FIRE),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pi != null) am.cancel(pi)
     }
 
     // --- приватное ---
