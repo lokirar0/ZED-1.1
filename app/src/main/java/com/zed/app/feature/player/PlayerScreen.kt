@@ -85,7 +85,6 @@ private fun audioPermission(): String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
-// Полноэкранный плеер. Haptic глобальный (MainActivity), здесь без ручных вызовов.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -150,12 +149,12 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Обложка + dot-matrix оверлей
+        // Обложка: БЕЗ серой подложки — прозрачно, видна только dot-matrix
+        // анимация (или арт трека, когда он есть)
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
                 .aspectRatio(1f)
-                .background(colors.surface, RoundedCornerShape(16.dp))
                 .align(Alignment.CenterHorizontally)
         ) {
             AsyncImage(
@@ -171,7 +170,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.xl))
 
-        // Название + артист + лайк
+        // Название / статус очереди + лайк
         Row(
             Modifier
                 .fillMaxWidth()
@@ -181,8 +180,13 @@ fun PlayerScreen(
             Column(Modifier.weight(1f)) {
                 val cur = state.current
                 if (cur == null) {
+                    // Очередь уже загружена (вся библиотека) — показываем её размер
                     Text(
-                        text = stringResource(R.string.player_queue_empty),
+                        text = if (state.queue.isNotEmpty()) {
+                            stringResource(R.string.player_idle_queue, state.queue.size)
+                        } else {
+                            stringResource(R.string.player_queue_empty)
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.textDisabled
                     )
