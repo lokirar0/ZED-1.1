@@ -50,15 +50,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // Звук уведомлений: сохраняем Uri и пересоздаём каналы с новым звуком
+    // Звук уведомлений: сохраняем Uri в устойчивой форме raw/имя
+    // (числовые id оболочками отбрасываются) и пересоздаём каналы
     fun setNotificationSound(uri: String) {
         viewModelScope.launch {
-            settingsRepository.setNotificationSound(uri)
-            NotificationHelper.ensureChannels(context, uri)
+            val normalized = NotificationHelper.normalizeSoundUri(context, uri)
+            settingsRepository.setNotificationSound(normalized)
+            NotificationHelper.ensureChannels(context, normalized)
         }
     }
 
-    // Тестовое уведомление: читаем звук честно через first() (фикс ZED-004)
+    // Тестовое уведомление: читаем звук честно через first()
     fun sendTestNotification() {
         viewModelScope.launch {
             val sound = settingsRepository.settings.first().notificationSoundUri
