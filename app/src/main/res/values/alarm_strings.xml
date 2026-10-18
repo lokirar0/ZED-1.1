@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_alarm_channel">Course alarms</string>
+    <string name="settings_sound">SOUND</string>
+    <string name="sound_default">Standard</string>
+    <string name="settings_fullscreen">ALLOW FULL-SCREEN ALERTS</string>
+    <string name="alarm_snooze">WAIT 5 MIN</string>
+    <string name="alarm_dismiss">DISMISS</string>
+</resources>
