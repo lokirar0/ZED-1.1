@@ -45,7 +45,7 @@ import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-// Список курсов приёма: день X/N, чек-чипы приёмов на сегодня, статусы
+// Список курсов приёма: день X/N, интервал «КАЖДЫЕ 2 Ч 30 М», чек-чипы приёмов
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CoursesScreen(
@@ -99,7 +99,11 @@ fun CoursesScreen(
                     verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
                 ) {
                     items(state.courses, key = { it.id }) { item ->
-                        CourseCard(item = item, onToggleDose = { min -> viewModel.toggleDose(item.id, min) }, onOpen = { onOpenEditor(item.id) })
+                        CourseCard(
+                            item = item,
+                            onToggleDose = { min -> viewModel.toggleDose(item.id, min) },
+                            onOpen = { onOpenEditor(item.id) }
+                        )
                     }
                 }
             }
@@ -165,7 +169,7 @@ private fun CourseCard(
                         )
                         Spacer(Modifier.width(ZedSpacing.md))
                         Text(
-                            text = stringResource(R.string.courses_every, item.intervalHours),
+                            text = stringResource(R.string.courses_every, item.intervalLabel),
                             style = MaterialTheme.typography.labelMedium,
                             color = colors.textDisabled
                         )
