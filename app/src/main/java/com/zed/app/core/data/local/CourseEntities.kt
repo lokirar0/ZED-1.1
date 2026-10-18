@@ -10,20 +10,21 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-// Курс приёма: препарат/добавка с датой старта, длительностью и интервалом приёмов
+// Курс приёма. Интервал = intervalHours часов + intervalMinutes минут
+// (колонка intervalMinutes добавлена миграцией 5→6, дефолт 0)
 @Entity(tableName = "courses")
 data class CourseEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val note: String = "",
-    val startDateMillis: Long,     // день старта (локальный)
-    val totalDays: Int,            // длительность курса в днях (day_of_course 1..N)
-    val intervalHours: Int,        // интервал приёмов, часов (настраиваемо: 2, 4, 8...)
-    val firstDoseMinutes: Int,     // первый приём дня, минут от полуночи (08:00 = 480)
+    val startDateMillis: Long,
+    val totalDays: Int,
+    val intervalHours: Int,
+    val intervalMinutes: Int = 0,
+    val firstDoseMinutes: Int,
     val createdAt: Long = System.currentTimeMillis()
 )
 
-// Отметка «принято»: курс + день + плановое время приёма
 @Entity(
     tableName = "dose_marks",
     foreignKeys = [ForeignKey(
@@ -37,8 +38,8 @@ data class CourseEntity(
 data class DoseMarkEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val courseId: Int,
-    val day: Long,          // LocalDate.toEpochDay()
-    val doseMinutes: Int    // плановое время приёма в минутах от полуночи
+    val day: Long,
+    val doseMinutes: Int
 )
 
 @Dao
