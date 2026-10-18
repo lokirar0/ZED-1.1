@@ -22,12 +22,11 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val habitRepository: HabitRepository,
     private val transactionRepository: TransactionRepository,
     private val courseRepository: CourseRepository,
     private val activityRepository: ActivityRepository,
-    private val settingsRepositoryForSchedule: SettingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -39,7 +38,6 @@ class MainViewModel @Inject constructor(
         ensureSchedules()
         viewModelScope.launch { transactionRepository.materializeRecurring() }
         viewModelScope.launch { activityRepository.addLaunch(LocalDate.now().toEpochDay()) }
-        // Курсы: восстанавливаем цепочки будильников при каждом старте
         viewModelScope.launch { courseRepository.rescheduleAllReminders() }
     }
 
@@ -49,9 +47,14 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // Экран первичных разрешений пройден (или пропущен) — больше не показывать
+    fun markPermissionsAsked() {
+        viewModelScope.launch { settingsRepository.setPermissionsAsked(true) }
+    }
+
     fun ensureSchedules() {
         viewModelScope.launch {
-            val s = settingsRepositoryForSchedule.settings.first()
+            val s = settingsRepository.settings.first()
             if (s.notificationsEnabled) {
                 ReminderScheduler.scheduleAll(context)
                 habitRepository.getHabitsOnce().forEach { habit ->
@@ -59,6 +62,7 @@ class MainViewModel @Inject constructor(
                         ReminderScheduler.scheduleHabitReminder(context, habit.id, minutes)
                     }
                 }
+                courseRepository.rescheduleAllReminders()
             }
         }
     }
