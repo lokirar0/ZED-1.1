@@ -43,7 +43,6 @@ data class PlayerUiState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
-    // Очередь = вся библиотека сразу (главный плейлист), порядок правится пользователем
     val queue: List<AudioTrack> = emptyList(),
     val queueIndex: Int = 0,
     val favoriteIds: Set<Long> = emptySet(),
@@ -71,11 +70,9 @@ class PlayerViewModel @Inject constructor(
     private var controller: MediaController? = null
     private var tickerJob: Job? = null
 
-    // Трек из поиска: player_screen?play=id
     private var pendingPlayId: Long = savedStateHandle.get<Long>("play") ?: -1L
 
     init {
-        // Очередь = вся библиотека, сразу при входе в плеер
         viewModelScope.launch { refresh() }
 
         viewModelScope.launch {
@@ -108,8 +105,10 @@ class PlayerViewModel @Inject constructor(
                     c.repeatMode = s.repeatMode.toPlayerRepeat()
                     _state.update { it.copy(shuffle = s.shuffleEnabled, repeatMode = s.repeatMode) }
                 }
-                // Воспроизведение трека из поиска: ДОЖИДАЕМСЯ загрузки библиотеки,
-                // иначе очередь пуста и трек не находится (гонка сканера и контроллера)
+                // Если очередь уже загружена, а плеер пуст — заливаем таймлайн
+                if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
+                    pushQueueToPlayer()
+                }
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
@@ -126,7 +125,6 @@ class PlayerViewModel @Inject constructor(
         }, ContextCompat.getMainExecutor(context))
     }
 
-    // Аудиореактивность для оверлея
     fun audioLevel(): Float = effectsManager.processor.level
     fun audioBass(): Float = effectsManager.processor.bass
 
@@ -143,10 +141,15 @@ class PlayerViewModel @Inject constructor(
                     queue = if (st.queue.isEmpty() || !sameSet) list else st.queue
                 )
             }
+            // ГЛАВНЫЙ ФИКС: очередь из state заливаем в ExoPlayer сразу после скана,
+            // иначе кнопка PLAY играла в пустой таймлайн, пока не выберешь трек вручную
+            val st = _state.value
+            if (controller != null && !st.isPlaying && st.current == null && st.queue.isNotEmpty()) {
+                pushQueueToPlayer()
+            }
         }
     }
 
-    // Трек из поиска / очереди: очередь = вся библиотека, старт с найденного
     fun playTrackById(id: Long) {
         val st = _state.value
         val queue = if (st.queue.isNotEmpty()) st.queue else st.tracks
@@ -218,22 +221,24 @@ class PlayerViewModel @Inject constructor(
     private fun pushQueueToPlayer() {
         val c = controller ?: return
         val st = _state.value
+        if (st.queue.isEmpty()) return
         c.setMediaItems(
             st.queue.map { it.toMediaItem() },
-            st.queueIndex,
+            st.queueIndex.coerceIn(0, st.queue.size - 1),
             c.currentPosition.coerceAtLeast(0L)
         )
     }
 
     // --- Воспроизведение ---
 
-    // PLAY: если ничего не играет и очередь полна — старт с первого трека
     fun togglePlayPause() {
         val c = controller ?: return
         if (c.isPlaying) {
             c.pause()
         } else {
             if (_state.value.current == null && _state.value.queue.isNotEmpty()) {
+                // Страховка: сначала убеждаемся, что таймлайн не пуст
+                if (c.mediaItemCount == 0) pushQueueToPlayer()
                 c.seekToDefaultPosition(0)
                 c.play()
                 _state.update { it.copy(queueIndex = 0) }
