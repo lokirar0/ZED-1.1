@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notif_alarm_channel">Будильники курсов</string>
+    <string name="settings_sound">ЗВУК</string>
+    <string name="sound_default">Стандартный</string>
+    <string name="settings_fullscreen">РАЗРЕШИТЬ ПОЛНОЭКРАННЫЕ ОПОВЕЩЕНИЯ</string>
+    <string name="alarm_snooze">ПОДОЖДАТЬ 5 МИН</string>
+    <string name="alarm_dismiss">ОТКЛЮЧИТЬ</string>
+</resources>
