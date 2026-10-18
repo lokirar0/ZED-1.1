@@ -26,7 +26,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,7 +69,10 @@ class PlayerViewModel @Inject constructor(
     private var controller: MediaController? = null
     private var tickerJob: Job? = null
 
+    // Трек из поиска (player_screen?play=id). Если библиотека ещё не готова —
+    // запрос откладывается (deferredPlayId) и выполняется в refresh()
     private var pendingPlayId: Long = savedStateHandle.get<Long>("play") ?: -1L
+    private var deferredPlayId: Long = -1L
 
     init {
         viewModelScope.launch { refresh() }
@@ -108,17 +110,11 @@ class PlayerViewModel @Inject constructor(
                 if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
                     pushQueueToPlayer()
                 }
+                // Трек из поиска: playTrackById сам отложится, если скан не готов
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
-                    viewModelScope.launch {
-                        var wait = 0
-                        while (_state.value.tracks.isEmpty() && wait < 100) {
-                            delay(100)
-                            wait++
-                        }
-                        playTrackById(id)
-                    }
+                    playTrackById(id)
                 }
             }
         }, ContextCompat.getMainExecutor(context))
@@ -144,12 +140,22 @@ class PlayerViewModel @Inject constructor(
             if (controller != null && !st.isPlaying && st.current == null && st.queue.isNotEmpty()) {
                 pushQueueToPlayer()
             }
+            // Отложенный запрос из поиска: библиотека готова — играем
+            if (deferredPlayId != -1L) {
+                val id = deferredPlayId
+                deferredPlayId = -1L
+                playTrackById(id)
+            }
         }
     }
 
-    // Новый трек из поиска/очереди: позиция сбрасывается (старт с 0:00)
+    // Воспроизвести трек по id. Если библиотека ещё пуста — откладываем до скана
     fun playTrackById(id: Long) {
         val st = _state.value
+        if (st.tracks.isEmpty()) {
+            deferredPlayId = id
+            return
+        }
         val queue = if (st.queue.isNotEmpty()) st.queue else st.tracks
         val idx = queue.indexOfFirst { it.id == id }
         if (idx < 0) return
@@ -216,9 +222,7 @@ class PlayerViewModel @Inject constructor(
         pushQueueToPlayer(resetPosition = false)
     }
 
-    // Заливка очереди в плеер.
-    // resetPosition = true: новый список играем с нуля (фикс ZED-002).
-    // resetPosition = false: переупорядочивание — не сбиваем текущую позицию.
+    // Заливка очереди в плеер. resetPosition=true — новый список с 0:00
     private fun pushQueueToPlayer(resetPosition: Boolean = false) {
         val c = controller ?: return
         val st = _state.value
