@@ -6,8 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.zed.app.core.domain.model.Course
 import com.zed.app.core.domain.repository.CourseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +18,7 @@ data class CourseEditorState(
     val startDateMillis: Long = System.currentTimeMillis(),
     val totalDaysText: String = "7",
     val intervalHoursText: String = "2",
+    val intervalMinutesText: String = "0",
     val firstDoseMinutes: Int = 8 * 60,
     val titleError: Boolean = false,
     val daysError: Boolean = false,
@@ -49,6 +48,7 @@ class CourseEditorViewModel @Inject constructor(
                         startDateMillis = c.startDateMillis,
                         totalDaysText = c.totalDays.toString(),
                         intervalHoursText = c.intervalHours.toString(),
+                        intervalMinutesText = c.intervalMinutes.toString(),
                         firstDoseMinutes = c.firstDoseMinutes
                     )
                 }
@@ -72,8 +72,12 @@ class CourseEditorViewModel @Inject constructor(
         _state.value = _state.value.copy(totalDaysText = value, daysError = false)
     }
 
-    fun onIntervalChange(value: String) {
+    fun onIntervalHoursChange(value: String) {
         _state.value = _state.value.copy(intervalHoursText = value, intervalError = false)
+    }
+
+    fun onIntervalMinutesChange(value: String) {
+        _state.value = _state.value.copy(intervalMinutesText = value, intervalError = false)
     }
 
     fun setFirstDoseMinutes(minutes: Int) {
@@ -83,11 +87,14 @@ class CourseEditorViewModel @Inject constructor(
     fun save() {
         val current = _state.value
         val days = current.totalDaysText.trim().toIntOrNull()
-        val interval = current.intervalHoursText.trim().toIntOrNull()
+        val hours = current.intervalHoursText.trim().toIntOrNull() ?: 0
+        val minutes = current.intervalMinutesText.trim().toIntOrNull() ?: 0
+        val totalInterval = hours * 60 + minutes
 
         val titleBad = current.title.isBlank()
         val daysBad = days == null || days !in 1..365
-        val intervalBad = interval == null || interval !in 1..12
+        // Интервал: от 10 минут до 24 часов; часы 0..23, минуты 0..59
+        val intervalBad = hours !in 0..23 || minutes !in 0..59 || totalInterval !in 10..1440
         if (titleBad || daysBad || intervalBad) {
             _state.value = current.copy(
                 titleError = titleBad,
@@ -104,11 +111,11 @@ class CourseEditorViewModel @Inject constructor(
                     note = current.note.trim(),
                     startDateMillis = current.startDateMillis,
                     totalDays = days!!,
-                    intervalHours = interval!!,
+                    intervalHours = hours,
+                    intervalMinutes = minutes,
                     firstDoseMinutes = current.firstDoseMinutes
                 )
             ).toInt()
-            // Ставим будильник ближайшего приёма сразу после сохранения
             repository.rescheduleReminders(if (current.isEditing) courseId else id)
             _state.value = _state.value.copy(finished = true)
         }
@@ -120,12 +127,4 @@ class CourseEditorViewModel @Inject constructor(
             _state.value = _state.value.copy(finished = true)
         }
     }
-
-    // День старта локальной даты → millis полудня (стабильная сортировка)
-    fun localDayMillis(millis: Long): Long =
-        java.time.Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
-            .atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-    fun todayMillis(): Long =
-        LocalDate.now().atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }
