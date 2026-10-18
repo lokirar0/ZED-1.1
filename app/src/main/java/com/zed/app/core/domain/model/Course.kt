@@ -12,11 +12,15 @@ data class Course(
     val startDateMillis: Long,
     val totalDays: Int,
     val intervalHours: Int,
+    val intervalMinutes: Int = 0,
     val firstDoseMinutes: Int,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun startLocalDate(): LocalDate =
         Instant.ofEpochMilli(startDateMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+
+    // Полный интервал приёма в минутах (часы*60 + минуты)
+    fun intervalTotalMinutes(): Int = intervalHours * 60 + intervalMinutes
 }
 
 // Отметка приёма
