@@ -40,7 +40,7 @@ import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-// Экран «Активность и аналитика»: сессии, сравнение месяцев, цели, ПРОПУСКИ КУРСОВ
+// Экран «Активность и аналитика»: сессии, сравнение месяцев, пропуски курсов, цели
 @Composable
 fun AnalyticsScreen(
     onBack: () -> Unit,
@@ -256,6 +256,12 @@ fun AnalyticsScreen(
                                     color = if (row.missedTotal > 0) colors.accent else colors.success
                                 )
                             }
+                            // Интервал приёма курса
+                            Text(
+                                text = stringResource(R.string.courses_every, row.intervalLabel),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.textDisabled
+                            )
                             if (row.lastMissLabel != null) {
                                 Text(
                                     text = stringResource(R.string.stat_last_miss, row.lastMissLabel!!),
