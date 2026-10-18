@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stat_courses">COURSES</string>
+    <string name="stat_missed_total">MISSED DOSES</string>
+    <string name="stat_missed_days">DAYS WITH MISSES</string>
+    <string name="stat_no_misses">NO MISSED DOSES</string>
+    <string name="stat_missed_row">MISSED: %1$d · DAYS: %2$d</string>
+    <string name="stat_last_miss">LAST MISS: %1$s</string>
+</resources>
