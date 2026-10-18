@@ -36,8 +36,7 @@ import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
-// Единый поиск: привычки, финансы, кредиты, музыка.
-// Тап по музыке = сразу воспроизвести трек (очередь = вся библиотека).
+// Единый поиск. Тап по музыке = СРАЗУ воспроизвести трек (очередь = вся библиотека)
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,
