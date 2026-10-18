@@ -34,7 +34,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
     }
 
-    // Язык: сохраняем и применяем немедленно (Activity пересоздастся сама)
     fun setLanguage(code: String) {
         viewModelScope.launch {
             settingsRepository.setLanguage(code)
@@ -42,7 +41,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // Переключение уведомлений: планируем/отменяем ОБА напоминания
     fun setNotificationsEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setNotificationsEnabled(enabled)
@@ -51,17 +49,32 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // Мгновенная проверка канала и разрешений: пуш должен прийти сразу
-    fun sendTestNotification() {
-        NotificationHelper.show(
-            context = context,
-            notificationId = 9999,
-            title = context.getString(R.string.notif_title),
-            text = context.getString(R.string.notif_test_body)
-        )
+    // Звук уведомлений: сохраняем Uri и пересоздаём каналы с новым звуком
+    fun setNotificationSound(uri: String) {
+        viewModelScope.launch {
+            settingsRepository.setNotificationSound(uri)
+            NotificationHelper.ensureChannels(context, uri)
+        }
     }
 
-    // --- Данные: бэкап, восстановление, очистка ---
+    fun sendTestNotification() {
+        viewModelScope.launch {
+            val sound = settingsRepository.settings.let { s ->
+                var out = ""
+                s.collect { out = it.notificationSoundUri; throw kotlinx.coroutines.CancellationException("stop") }
+                out
+            }
+            NotificationHelper.show(
+                context = context,
+                notificationId = 9999,
+                title = context.getString(R.string.notif_title),
+                text = context.getString(R.string.notif_test_body),
+                soundUri = sound
+            )
+        }
+    }
+
+    // --- Данные ---
 
     suspend fun exportBackup(uri: Uri): Boolean = backupManager.exportToUri(uri)
 
