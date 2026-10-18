@@ -45,6 +45,7 @@ class CourseRepositoryImpl @Inject constructor(
                 startDateMillis = course.startDateMillis,
                 totalDays = course.totalDays,
                 intervalHours = course.intervalHours,
+                intervalMinutes = course.intervalMinutes,
                 firstDoseMinutes = course.firstDoseMinutes,
                 createdAt = course.createdAt
             )
@@ -62,7 +63,6 @@ class CourseRepositoryImpl @Inject constructor(
         } else {
             doseDao.insert(DoseMarkEntity(courseId = courseId, day = day, doseMinutes = doseMinutes))
         }
-        // Отметили приём → следующий будильник сдвигается на ближайший оставшийся
         rescheduleReminders(courseId)
     }
 
@@ -105,7 +105,8 @@ class CourseRepositoryImpl @Inject constructor(
     }
 
     private fun CourseEntity.toDomain() = Course(
-        id, title, note, startDateMillis, totalDays, intervalHours, firstDoseMinutes, createdAt
+        id, title, note, startDateMillis, totalDays,
+        intervalHours, intervalMinutes, firstDoseMinutes, createdAt
     )
 
     private fun DoseMarkEntity.toDomain() = DoseMark(id, courseId, day, doseMinutes)
