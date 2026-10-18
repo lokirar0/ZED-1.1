@@ -53,9 +53,10 @@ data class AnalyticsUi(
 data class CourseStatRow(
     val id: Int,
     val title: String,
-    val missedTotal: Int,     // пропущено приёмов всего
-    val missedDays: Int,      // дней с хотя бы одним пропуском
-    val lastMissLabel: String? // «18 окт, 14:00»
+    val intervalLabel: String,   // «2 ч 30 м»
+    val missedTotal: Int,        // пропущено приёмов всего
+    val missedDays: Int,         // дней с хотя бы одним пропуском
+    val lastMissLabel: String?   // «18 окт, 14:00»
 )
 
 data class CourseStatsUi(
@@ -184,7 +185,7 @@ class AnalyticsViewModel @Inject constructor(
                     .map { it.doseMinutes }
                     .toSet()
                 val dayMisses = DoseScheduleCalculator
-                    .dosesForDay(course.firstDoseMinutes, course.intervalHours)
+                    .dosesFor(course)
                     .filter { min ->
                         val past = date.isBefore(today) || (date.isEqual(today) && min < nowMin)
                         past && !taken.contains(min)
@@ -192,7 +193,6 @@ class AnalyticsViewModel @Inject constructor(
                 if (dayMisses.isNotEmpty()) {
                     daysWithMiss++
                     missed += dayMisses.size
-                    // Дни идут по возрастанию → перезаписываем, остаётся последний пропуск
                     lastDate = date
                     lastMin = dayMisses.last()
                 }
@@ -203,6 +203,7 @@ class AnalyticsViewModel @Inject constructor(
             CourseStatRow(
                 id = course.id,
                 title = course.title,
+                intervalLabel = DoseScheduleCalculator.formatInterval(course.intervalTotalMinutes()),
                 missedTotal = missed,
                 missedDays = daysWithMiss,
                 lastMissLabel = if (lastDate != null && lastMin != null) {
