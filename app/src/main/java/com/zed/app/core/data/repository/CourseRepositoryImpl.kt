@@ -34,22 +34,13 @@ class CourseRepositoryImpl @Inject constructor(
     override suspend fun getCoursesOnce(): List<Course> =
         courseDao.getAll().map { it.toDomain() }
 
+    override suspend fun getDosesOnce(): List<DoseMark> =
+        doseDao.getAll().map { it.toDomain() }
+
     override suspend fun getCourse(id: Int): Course? = courseDao.get(id)?.toDomain()
 
     override suspend fun upsert(course: Course): Long =
-        courseDao.upsert(
-            CourseEntity(
-                id = course.id,
-                title = course.title,
-                note = course.note,
-                startDateMillis = course.startDateMillis,
-                totalDays = course.totalDays,
-                intervalHours = course.intervalHours,
-                intervalMinutes = course.intervalMinutes,
-                firstDoseMinutes = course.firstDoseMinutes,
-                createdAt = course.createdAt
-            )
-        )
+        courseDao.upsert(course.toEntity())
 
     override suspend fun delete(id: Int) {
         ReminderScheduler.cancelCourseDose(context, id)
@@ -68,6 +59,25 @@ class CourseRepositoryImpl @Inject constructor(
 
     override suspend fun isDoseTaken(courseId: Int, day: Long, doseMinutes: Int): Boolean =
         doseDao.find(courseId, day, doseMinutes) != null
+
+    // --- Бэкап / восстановление ---
+
+    override suspend fun importCourses(courses: List<Course>) {
+        courseDao.insertAll(courses.map { it.toEntity() })
+    }
+
+    override suspend fun importDoses(doses: List<DoseMark>) {
+        doseDao.insertAll(
+            doses.map { DoseMarkEntity(id = it.id, courseId = it.courseId, day = it.day, doseMinutes = it.doseMinutes) }
+        )
+    }
+
+    override suspend fun clearAllCourses() {
+        // Каскад: dose_marks удаляются следом за курсами через FK
+        courseDao.clear()
+    }
+
+    // --- Будильники ---
 
     override suspend fun rescheduleReminders(courseId: Int) {
         val course = getCourse(courseId)
@@ -103,6 +113,20 @@ class CourseRepositoryImpl @Inject constructor(
     override suspend fun rescheduleAllReminders() {
         getCoursesOnce().forEach { rescheduleReminders(it.id) }
     }
+
+    // --- Маппинг ---
+
+    private fun Course.toEntity() = CourseEntity(
+        id = id,
+        title = title,
+        note = note,
+        startDateMillis = startDateMillis,
+        totalDays = totalDays,
+        intervalHours = intervalHours,
+        intervalMinutes = intervalMinutes,
+        firstDoseMinutes = firstDoseMinutes,
+        createdAt = createdAt
+    )
 
     private fun CourseEntity.toDomain() = Course(
         id, title, note, startDateMillis, totalDays,
