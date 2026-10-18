@@ -32,7 +32,7 @@ data class CourseUiItem(
     val totalDays: Int,
     val status: Int,            // 0 = не начался, 1 = идёт, 2 = завершён
     val startLabel: String,     // «16 октября 2026»
-    val intervalHours: Int,
+    val intervalLabel: String,  // «2 ч» / «2 ч 30 м» / «45 м»
     val doses: List<DoseUi>,    // приёмы на сегодня (пусто, если курс неактивен)
     val takenCount: Int,
     val doseCount: Int
@@ -82,7 +82,7 @@ class CoursesViewModel @Inject constructor(
             .toSet()
 
         val doseList = if (status == 1) {
-            DoseScheduleCalculator.dosesForDay(course.firstDoseMinutes, course.intervalHours).map { min ->
+            DoseScheduleCalculator.dosesFor(course).map { min ->
                 DoseUi(
                     minutes = min,
                     label = DoseScheduleCalculator.formatMinutes(min),
@@ -102,7 +102,7 @@ class CoursesViewModel @Inject constructor(
             startLabel = course.startLocalDate().format(
                 DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault())
             ),
-            intervalHours = course.intervalHours,
+            intervalLabel = DoseScheduleCalculator.formatInterval(course.intervalTotalMinutes()),
             doses = doseList,
             takenCount = doseList.count { it.taken },
             doseCount = doseList.size
