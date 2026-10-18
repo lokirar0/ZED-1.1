@@ -6,7 +6,7 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
 // Чистая логика расписания приёмов: day_of_course → schedule_array на день.
-// Интервал задаётся в МИНУТАХ (часы*60 + минуты), минимум 10 минут.
+// Интервал = часы*60 + минуты, минимум 10 минут.
 object DoseScheduleCalculator {
 
     fun dayIndex(start: LocalDate, today: LocalDate): Int =
@@ -26,12 +26,13 @@ object DoseScheduleCalculator {
         return list
     }
 
-    // Удобная обёртка для курса
     fun dosesFor(course: Course): List<Int> =
         dosesForDay(course.firstDoseMinutes, course.intervalHours, course.intervalMinutes)
 
-    // Ближайший будущий приём: сегодня (непрошедшее и неотмеченное),
-    // иначе первый приём завтра, если курс ещё идёт
+    // Ближайший будущий приём.
+    // ВАЖНО: условие СТРОГО `> nowMin` — доза, чей будильник только что сработал,
+    // исключается из перестановки цепочки (иначе петля мгновенного повторного
+    // выстрела в ту же минуту ломала snooze и плодила дубли).
     fun nextDose(
         course: Course,
         now: ZonedDateTime,
@@ -43,7 +44,7 @@ object DoseScheduleCalculator {
         val nowMin = now.hour * 60 + now.minute
 
         if (isActive(day, course.totalDays)) {
-            val dose = doses.firstOrNull { it >= nowMin && it !in takenTodayMinutes }
+            val dose = doses.firstOrNull { it > nowMin && it !in takenTodayMinutes }
             if (dose != null) {
                 return today.atTime(dose / 60, dose % 60).atZone(now.zone) to dose
             }
