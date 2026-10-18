@@ -3,7 +3,8 @@ package com.zed.app.core.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-// v5: курсы приёма (courses + dose_marks)
+// v6: courses.intervalMinutes (интервал приёма с точностью до минут).
+// Миграция 5→6 неразрушающая (ALTER TABLE ADD COLUMN) — данные сохраняются.
 @Database(
     entities = [
         HabitEntity::class,
@@ -20,7 +21,7 @@ import androidx.room.RoomDatabase
         CourseEntity::class,
         DoseMarkEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class ZedDatabase : RoomDatabase() {
