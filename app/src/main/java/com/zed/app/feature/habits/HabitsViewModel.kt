@@ -16,9 +16,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -37,7 +39,7 @@ data class HabitsUiState(
     val todayDone: Int = 0,
     val todayTotal: Int = 0,
     val bestStreak: Int = 0,
-    val coursesLabel: String? = null, // «ДЕНЬ 3/25 · 2 Ч 30 М · СЛЕД. 14:00» или null
+    val coursesLabel: String? = null,
     val loaded: Boolean = false
 )
 
@@ -52,12 +54,21 @@ class HabitsViewModel @Inject constructor(
     private var lastHabit: Habit? = null
     private var lastCompletions: List<HabitCompletion> = emptyList()
 
+    // Минутный тикер: метка курса («СЛЕД. 14:00») обновляется сама (фикс ZED-005)
+    private val tick = flow {
+        while (true) {
+            emit(Unit)
+            delay(60_000)
+        }
+    }
+
     val state: StateFlow<HabitsUiState> = combine(
         repository.observeHabits(),
         repository.observeCompletions(),
         courseRepository.observeCourses(),
-        courseRepository.observeDoses()
-    ) { habits, completions, courses, doses ->
+        courseRepository.observeDoses(),
+        tick
+    ) { habits, completions, courses, doses, _ ->
         completionsNow = completions
         val today = LocalDate.now().toEpochDay()
         val byHabit = completions.groupBy({ it.habitId }, { it.day })
@@ -118,8 +129,6 @@ class HabitsViewModel @Inject constructor(
 
     // --- приватное ---
 
-    // Метка карточки курсов: день курса, интервал и следующий неприёманный приём.
-    // Локализовано через строки; минуты интервала учитываются (dosesForDay с 3-м аргументом)
     private fun buildCoursesLabel(
         courses: List<com.zed.app.core.domain.model.Course>,
         doses: List<com.zed.app.core.domain.model.DoseMark>
