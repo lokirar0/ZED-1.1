@@ -12,15 +12,18 @@ import androidx.core.app.NotificationManagerCompat
 import com.zed.app.R
 
 // Каналы и показ уведомлений ZED.
-// Два канала: обычные напоминания и «будильники» курсов (полноэкранные, DND-обход).
-// Звук задаётся Uri из настроек; при смене звука канал пересоздаётся
-// (Android фиксирует звук канала на момент создания).
+// Звук — из настроек (встроенные ZED / системный), вибрация — ритм-паттерн
+// VIBRO_RHYTHM (пульс-пульс-пульс… пауза), единый для канала и для
+// полноэкранного будильника (там он крутится циклом, пока экран открыт).
 object NotificationHelper {
 
     const val CHANNEL_REMINDERS = "zed_reminders"
     const val CHANNEL_ALARMS = "zed_alarms"
     const val ID_HABITS = 1001
     const val ID_CREDITS = 1002
+
+    // Ритм вибрации «в такт»: три коротких пульса, пауза, повтор
+    val VIBRO_RHYTHM: LongArray = longArrayOf(0, 100, 100, 100, 100, 100, 300)
 
     fun ensureChannels(context: Context, soundUri: String?) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -51,13 +54,14 @@ object NotificationHelper {
             ?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val existing = manager.getNotificationChannel(id)
         if (existing != null) {
-            val same = when {
+            val sameSound = when {
                 desired == null && existing.sound == null -> true
                 desired != null && desired == existing.sound -> true
                 else -> false
             }
-            if (same) return
-            // Звук изменился — пересоздаём канал с новым звуком
+            val sameVib = existing.vibrationPattern?.contentEquals(VIBRO_RHYTHM) ?: false
+            if (sameSound && sameVib) return
+            // Звук или ритм изменились — пересоздаём канал
             manager.deleteNotificationChannel(id)
         }
         val channel = NotificationChannel(id, name, importance)
@@ -70,6 +74,8 @@ object NotificationHelper {
                     .build()
             )
         }
+        // Вибрация в такт: паттерн канала = ритм ZED
+        channel.vibrationPattern = VIBRO_RHYTHM
         channel.enableVibration(true)
         channel.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         if (bypassDnd) channel.setBypassDnd(true)
