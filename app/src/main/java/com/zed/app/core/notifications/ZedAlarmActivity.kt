@@ -1,7 +1,11 @@
 package com.zed.app.core.notifications
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -28,17 +32,32 @@ import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import com.zed.app.ui.theme.ZedTheme
 
-// Полноэкранный будильник приёма: всплывает поверх блокировки (как будильник),
-// кнопки «ПОДОЖДАТЬ 5 МИН» и «ОТКЛЮЧИТЬ».
+// Полноэкранный будильник приёма: всплывает поверх блокировки,
+// кнопки «ПОДОЖДАТЬ 5 МИН» / «ОТКЛЮЧИТЬ».
+// ВИБРАЦИЯ В ТАКТ: пока экран открыт, вибрируем циклом тем же ритмом
+// VIBRO_RHYTHM, что и звук канала — пульс-пульс-пульс… пауза.
 class ZedAlarmActivity : ComponentActivity() {
+
+    private val vibrator: Vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Vibrator::class.java)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Показ поверх заблокированного экрана + включение подсветки
         runCatching {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         }
+        // Цикловая вибрация ритмом ZED (repeat = 0 → бесконечно до cancel)
+        runCatching {
+            vibrator.vibrate(VibrationEffect.createWaveform(NotificationHelper.VIBRO_RHYTHM, 0))
+        }
+
         val title = intent.getStringExtra(ReminderScheduler.KEY_TITLE).orEmpty()
         val time = intent.getStringExtra(ReminderScheduler.KEY_TIME_LABEL).orEmpty()
 
@@ -54,8 +73,14 @@ class ZedAlarmActivity : ComponentActivity() {
         }
     }
 
-    // Шлём тот же payload в ресивер: он поставит snooze-будильник или снимет уведомление
+    override fun onDestroy() {
+        runCatching { vibrator.cancel() }
+        super.onDestroy()
+    }
+
+    // Шлём тот же payload в ресивер: он поставит snooze или засчитает приём
     private fun send(action: String) {
+        runCatching { vibrator.cancel() }
         val i = Intent(this, ReminderReceiver::class.java).setAction(action)
         intent.extras?.let { i.putExtras(it) }
         sendBroadcast(i)
@@ -79,7 +104,6 @@ private fun AlarmUi(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.weight(1f))
-        // Время приёма крупно точечным шрифтом
         Text(
             text = time,
             style = MaterialTheme.typography.displayLarge,
@@ -93,7 +117,6 @@ private fun AlarmUi(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.weight(1f))
-        // ПОДОЖДАТЬ 5 МИН
         TextButton(
             onClick = onSnooze,
             modifier = Modifier
@@ -108,7 +131,6 @@ private fun AlarmUi(
             )
         }
         Spacer(Modifier.height(ZedSpacing.md))
-        // ОТКЛЮЧИТЬ
         TextButton(
             onClick = onDismiss,
             modifier = Modifier
