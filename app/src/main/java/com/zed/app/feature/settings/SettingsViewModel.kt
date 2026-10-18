@@ -17,6 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -57,13 +58,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    // Тестовое уведомление: читаем звук честно через first() (фикс ZED-004)
     fun sendTestNotification() {
         viewModelScope.launch {
-            val sound = settingsRepository.settings.let { s ->
-                var out = ""
-                s.collect { out = it.notificationSoundUri; throw kotlinx.coroutines.CancellationException("stop") }
-                out
-            }
+            val sound = settingsRepository.settings.first().notificationSoundUri
             NotificationHelper.show(
                 context = context,
                 notificationId = 9999,
@@ -74,7 +72,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // --- Данные ---
+    // --- Данные: бэкап, восстановление, очистка ---
 
     suspend fun exportBackup(uri: Uri): Boolean = backupManager.exportToUri(uri)
 
