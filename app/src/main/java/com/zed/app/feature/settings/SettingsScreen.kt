@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.Ringtone
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -11,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,11 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.SnackbarHost
@@ -36,6 +41,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +65,11 @@ import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 import kotlinx.coroutines.launch
 
+// Вариант звука в списке выбора
+private data class SoundOption(val label: String, val uri: String)
+
 @Suppress("DEPRECATION")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -73,6 +83,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearDialog by remember { mutableStateOf(false) }
+    var showSoundSheet by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -100,17 +111,24 @@ fun SettingsScreen(
         }
     }
 
-    // Системный picker звуков уведомления: видит и пользовательские рингтоны (pace-np и т.д.)
+    // Текущий звук: пусто = стандартный; android.resource:// = встроенный ZED; иное = системный
     val soundUri = settings.notificationSoundUri
-    val soundName = remember(soundUri) {
-        if (soundUri.isBlank()) {
-            context.getString(R.string.sound_default)
-        } else {
-            runCatching {
+    val zedPrefix = "android.resource://" + context.packageName
+    val soundName = remember(soundUri, context) {
+        when {
+            soundUri.isBlank() -> context.getString(R.string.sound_default)
+            soundUri.startsWith(zedPrefix) -> soundUri
+                .substringAfterLast('/')
+                .substringBefore('.')
+                .uppercase()
+                .replace('_', '-')
+            else -> runCatching {
                 RingtoneManager.getRingtone(context, Uri.parse(soundUri))?.getTitle(context)
             }.getOrNull() ?: context.getString(R.string.sound_default)
         }
     }
+
+    // Системный picker звуков (для пункта «Другой звук…»)
     val soundLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -167,7 +185,7 @@ fun SettingsScreen(
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- УВЕДОМЛЕНИЯ: тумблер, звук, полноэкранные, тест ---
+            // --- УВЕДОМЛЕНИЯ ---
             SectionLabel(stringResource(R.string.settings_notifications))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
@@ -199,25 +217,14 @@ fun SettingsScreen(
                 )
             }
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
-                // Звук уведомлений (глобально: курсы, привычки, кредиты)
+                // Звук уведомлений: встроенные ZED / стандартный / системный picker
                 DataButton(
                     label = stringResource(R.string.settings_sound) + ": " + soundName,
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
-                    onClick = rememberHapticClick {
-                        soundLauncher.launch(
-                            Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                if (soundUri.isNotBlank()) {
-                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(soundUri))
-                                }
-                            }
-                        )
-                    }
+                    onClick = rememberHapticClick { showSoundSheet = true }
                 )
-                // Полноэкранные оповещения (Android 14+): как у будильников
+                // Полноэкранные оповещения (Android 14+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     val nm = context.getSystemService(NotificationManager::class.java)
                     if (!nm.canUseFullScreenIntent()) {
@@ -310,6 +317,32 @@ fun SettingsScreen(
         )
     }
 
+    // --- Лист выбора звука ---
+    if (showSoundSheet) {
+        SoundSheet(
+            currentUri = soundUri,
+            zedPrefix = zedPrefix,
+            onPick = { uri ->
+                viewModel.setNotificationSound(uri)
+                showSoundSheet = false
+            },
+            onSystemPicker = {
+                showSoundSheet = false
+                soundLauncher.launch(
+                    Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                        if (soundUri.isNotBlank()) {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(soundUri))
+                        }
+                    }
+                )
+            },
+            onDismiss = { showSoundSheet = false }
+        )
+    }
+
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
@@ -342,6 +375,168 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+// BottomSheet выбора звука: встроенные ZED (с прослушиванием),
+// стандартный системный, «Другой…» через системный picker
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SoundSheet(
+    currentUri: String,
+    zedPrefix: String,
+    onPick: (String) -> Unit,
+    onSystemPicker: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colors = LocalZedColors.current
+
+    // Предпрослушивание: держим один Ringtone, глушим при выходе из листа
+    var preview by remember { mutableStateOf<Ringtone?>(null) }
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { preview?.stop() }
+        }
+    }
+
+    // Встроенные звуки ZED из res/raw
+    val zedSounds = remember(context) {
+        listOf(
+            "PACE" to R.raw.pace_np,
+            "FIDGET" to R.raw.fidget_np,
+            "WINGS" to R.raw.wings_np,
+            "RIPPLE" to R.raw.ripple_np,
+            "PULSE" to R.raw.pulse_np,
+            "SHAKE" to R.raw.shake_np,
+            "SAW" to R.raw.saw_np
+        ).map { (label, res) ->
+            SoundOption(label, "$zedPrefix/$res")
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = {
+            runCatching { preview?.stop() }
+            onDismiss()
+        },
+        containerColor = colors.surface
+    ) {
+        Column(Modifier.padding(bottom = ZedSpacing.xl)) {
+            Text(
+                text = stringResource(R.string.settings_sound),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textDisabled,
+                modifier = Modifier.padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm)
+            )
+
+            // Стандартный системный звук
+            SoundRow(
+                label = stringResource(R.string.sound_default),
+                selected = currentUri.isBlank(),
+                onPreview = null,
+                onClick = {
+                    runCatching { preview?.stop() }
+                    onPick("")
+                }
+            )
+
+            Text(
+                text = stringResource(R.string.sound_zed),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textDisabled,
+                modifier = Modifier.padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm)
+            )
+            zedSounds.forEach { opt ->
+                SoundRow(
+                    label = opt.label,
+                    selected = currentUri == opt.uri,
+                    onPreview = {
+                        runCatching { preview?.stop() }
+                        val r = RingtoneManager.getRingtone(context, Uri.parse(opt.uri))
+                        runCatching { r?.play() }
+                        preview = r
+                    },
+                    onClick = {
+                        runCatching { preview?.stop() }
+                        onPick(opt.uri)
+                    }
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.sound_system),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textDisabled,
+                modifier = Modifier.padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm)
+            )
+            SoundRow(
+                label = stringResource(R.string.sound_other),
+                selected = currentUri.isNotBlank() && !currentUri.startsWith(zedPrefix),
+                onPreview = null,
+                onClick = {
+                    runCatching { preview?.stop() }
+                    onSystemPicker()
+                }
+            )
+        }
+    }
+}
+
+// Строка звука: название + кнопка прослушивания + индикатор выбора
+@Composable
+private fun SoundRow(
+    label: String,
+    selected: Boolean,
+    onPreview: (() -> Unit)?,
+    onClick: () -> Unit
+) {
+    val colors = LocalZedColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) colors.accent else colors.textPrimary,
+            modifier = Modifier.weight(1f)
+        )
+        if (onPreview != null) {
+            IconButton(onClick = onPreview) {
+                Icon(Icons.Outlined.PlayArrow, null, tint = colors.textSecondary, modifier = Modifier.padding(end = ZedSpacing.xs).then(Modifier.matchParentSize().let { Modifier }))
+            }
+        }
+        Box(
+            Modifier
+                .padding(start = ZedSpacing.xs)
+                .then(
+                    if (selected) {
+                        Modifier
+                            .padding(4.dp)
+                            .background(colors.accent, RoundedCornerShape(ZedRadius.xs))
+                            .then(Modifier.size10())
+                    } else {
+                        Modifier
+                            .padding(4.dp)
+                            .border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.xs))
+                            .then(Modifier.size10())
+                    }
+                )
+        )
+    }
+}
+
+private fun Modifier.size10(): Modifier =
+    this.then(androidx.compose.foundation.layout.sizeModifier10)
+
+private val androidx.compose.foundation.layout.sizeModifier10: Modifier
+    get() = androidx.compose.foundation.layout.SizeHolder10.mod
+
+private object androidx.compose.foundation.layout.SizeHolder10 {
+    val mod: Modifier = Modifier
 }
 
 @Composable
