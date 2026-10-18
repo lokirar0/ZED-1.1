@@ -2,6 +2,8 @@ package com.zed.app.core.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.zed.app.core.data.local.CategoryDao
 import com.zed.app.core.data.local.CourseDao
 import com.zed.app.core.data.local.CreditDao
@@ -39,10 +41,18 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    // v5 → v6: минуты интервала в курсах. БЕЗ потери данных
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE courses ADD COLUMN intervalMinutes INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ZedDatabase =
         Room.databaseBuilder(context, ZedDatabase::class.java, ZedDatabase.NAME)
+            .addMigrations(MIGRATION_5_6)
             .fallbackToDestructiveMigration()
             .build()
 
