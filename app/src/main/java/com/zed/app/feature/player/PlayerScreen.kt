@@ -149,8 +149,8 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Обложка: БЕЗ серой подложки — прозрачно, видна только dot-matrix
-        // анимация (или арт трека, когда он есть)
+        // Обложка: прозрачная подложка; поверх — встроенные GIF из APK
+        // (fx_01..fx_26), а если их нет — нативный dot-matrix оверлей
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -165,7 +165,7 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(16.dp))
             )
-            DotMatrixOverlay(Modifier.matchParentSize())
+            ZedPlayerOverlay(Modifier.matchParentSize())
         }
 
         Spacer(Modifier.height(ZedSpacing.xl))
@@ -180,7 +180,6 @@ fun PlayerScreen(
             Column(Modifier.weight(1f)) {
                 val cur = state.current
                 if (cur == null) {
-                    // Очередь уже загружена (вся библиотека) — показываем её размер
                     Text(
                         text = if (state.queue.isNotEmpty()) {
                             stringResource(R.string.player_idle_queue, state.queue.size)
