@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_glyph_section">GLYPH</string>
+    <string name="settings_glyph">Световые акценты на событиях</string>
+    <string name="settings_quote">Руки Бога так тряслись, когда он создавал наш свет</string>
+</resources>
