@@ -1,31 +1,32 @@
 package com.zed.app.feature.player
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Movie
+import android.graphics.Paint
 import android.os.SystemClock
-import androidx.compose.foundation.Canvas
+import android.view.View
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import kotlin.math.min
+import androidx.compose.ui.viewinterop.AndroidView
 
 // ============================================================
 // Оверлей плеера: 26 встроенных GIF из res/raw (fx_01..fx_26).
 // Декодер — системный android.graphics.Movie: НУЛЬ внешних
-// зависимостей (coil-gif больше не нужен), потоковая декодация
-// кадров без загрузки всего файла в память.
+// зависимостей, потоковая декодация кадров без загрузки всего
+// файла в память. Отрисовка — обычный Android View через
+// AndroidView: только родной android.graphics.Canvas, без
+// экзотических Compose graphics API.
 //
 // ЛЮБОЕ РАЗРЕШЕНИЕ GIF: кадр вписывается в квадрат 1:1 целиком
-// и центрируется (scale = min по осям + смещение к центру) —
+// и центрируется (scale по меньшей оси + смещение к центру) —
 // «выровнено под ровный квадрат, по центру», без искажений.
 //
 // Долгий тап по обложке листает GIF по кругу.
@@ -67,38 +68,49 @@ private fun MovieGifOverlay(models: List<Int>, modifier: Modifier) {
         }.getOrNull()
     }
 
-    // Длительность цикла: из метаданных GIF, иначе дефолт 3 секунды
-    val durationMs = movie?.duration()?.takeIf { it > 0 } ?: 3000
-
-    // Кадровое время: тикаем синхронно с vsync дисплея (до 120 Гц)
-    var timeMs by remember(movie) { mutableStateOf(0L) }
-    LaunchedEffect(movie) {
-        if (movie == null) return@LaunchedEffect
-        val start = SystemClock.uptimeMillis()
-        while (true) {
-            withFrameMillis { }
-            timeMs = (SystemClock.uptimeMillis() - start) % durationMs
-        }
-    }
-
-    Canvas(
+    AndroidView(
         modifier = modifier.pointerInput(models) {
             detectTapGestures(onLongPress = { index = (index + 1).mod(models.size) })
-        }
-    ) {
-        val m = movie ?: return@Canvas
-        m.setTime(timeMs.toInt())
+        },
+        factory = { ctx -> MovieView(ctx) },
+        update = { view -> view.setMovie(movie) }
+    )
+}
+
+// View, которое крутит Movie: кадр по времени + invalidate() для
+// следующего кадра (синхронно с vsync). Масштаб/центрирование — в onDraw.
+private class MovieView(context: Context) : View(context) {
+
+    private var movie: Movie? = null
+    private var startMs = SystemClock.uptimeMillis()
+
+    @Suppress("unused")
+    private val paint = Paint().apply { isFilterBitmap = false }
+
+    fun setMovie(m: Movie?) {
+        movie = m
+        startMs = SystemClock.uptimeMillis()
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val m = movie ?: return
+        // Длительность цикла: из метаданных GIF, иначе дефолт 3 секунды
+        val dur = if (m.duration() > 0) m.duration() else 3000
+        m.setTime(((SystemClock.uptimeMillis() - startMs) % dur).toInt())
+
         // Вписываем целиком и центрируем: масштаб по меньшей оси + смещение
-        val scale = min(size.width / m.width(), size.height / m.height())
-        val dx = (size.width - m.width() * scale) / 2f
-        val dy = (size.height - m.height() * scale) / 2f
-        drawIntoCanvas { c ->
-            val native = c.nativeCanvas
-            native.save()
-            native.translate(dx, dy)
-            native.scale(scale, scale)
-            m.draw(native, 0f, 0f)
-            native.restore()
-        }
+        val scale = minOf(width.toFloat() / m.width(), height.toFloat() / m.height())
+        val dx = (width - m.width() * scale) / 2f
+        val dy = (height - m.height() * scale) / 2f
+
+        canvas.save()
+        canvas.translate(dx, dy)
+        canvas.scale(scale, scale)
+        m.draw(canvas, 0f, 0f)
+        canvas.restore()
+
+        // Запрашиваем следующий кадр
+        invalidate()
     }
 }
