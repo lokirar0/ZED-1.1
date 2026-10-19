@@ -25,7 +25,8 @@ data class Settings(
     val fxReverb: Int = 0,
     val fxEq: String = "0.5,0.5,0.5,0.5,0.5",
     val notificationSoundUri: String = "",
-    val permissionsAsked: Boolean = false // экран первичных разрешений показан/пройден
+    val permissionsAsked: Boolean = false,
+    val glyphEnabled: Boolean = true // Glyph-акценты: световые вспышки на события
 )
 
 fun parseEqGains(s: String): List<Float> =
@@ -51,7 +52,8 @@ class SettingsRepository @Inject constructor(
             fxReverb = prefs[KEY_FX_REVERB] ?: 0,
             fxEq = prefs[KEY_FX_EQ] ?: "0.5,0.5,0.5,0.5,0.5",
             notificationSoundUri = prefs[KEY_NOTIF_SOUND] ?: "",
-            permissionsAsked = prefs[KEY_PERMS_ASKED] ?: false
+            permissionsAsked = prefs[KEY_PERMS_ASKED] ?: false,
+            glyphEnabled = prefs[KEY_GLYPH] ?: true
         )
     }
 
@@ -62,6 +64,7 @@ class SettingsRepository @Inject constructor(
     suspend fun setShuffleEnabled(enabled: Boolean) { dataStore.edit { it[KEY_SHUFFLE] = enabled } }
     suspend fun setRepeatMode(mode: Int) { dataStore.edit { it[KEY_REPEAT] = mode } }
     suspend fun setPermissionsAsked(value: Boolean) { dataStore.edit { it[KEY_PERMS_ASKED] = value } }
+    suspend fun setGlyphEnabled(value: Boolean) { dataStore.edit { it[KEY_GLYPH] = value } }
 
     suspend fun setFx(speed: Float, reverb: Int, eq: String) {
         dataStore.edit {
@@ -87,5 +90,6 @@ class SettingsRepository @Inject constructor(
         val KEY_FX_EQ = stringPreferencesKey("fx_eq")
         val KEY_NOTIF_SOUND = stringPreferencesKey("notification_sound_uri")
         val KEY_PERMS_ASKED = booleanPreferencesKey("permissions_asked")
+        val KEY_GLYPH = booleanPreferencesKey("glyph_enabled")
     }
 }
