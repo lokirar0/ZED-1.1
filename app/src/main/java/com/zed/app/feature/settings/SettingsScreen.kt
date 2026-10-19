@@ -12,14 +12,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -53,7 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +63,7 @@ import com.zed.app.BuildConfig
 import com.zed.app.R
 import com.zed.app.core.settings.ThemeMode
 import com.zed.app.ui.components.rememberHapticClick
+import com.zed.app.ui.theme.DotoFont
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
@@ -112,7 +115,7 @@ fun SettingsScreen(
         }
     }
 
-    // Текущий звук: пусто = стандартный; android.resource:// = встроенный ZED; иное = системный
+    // Текущий звук уведомлений
     val soundUri = settings.notificationSoundUri
     val zedPrefix = "android.resource://" + context.packageName
     val soundName = remember(soundUri, context) {
@@ -129,7 +132,6 @@ fun SettingsScreen(
         }
     }
 
-    // Системный picker звуков (пункт «Другой звук…»)
     val soundLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -186,7 +188,7 @@ fun SettingsScreen(
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
-            // --- УВЕДОМЛЕНИЯ ---
+            // --- УВЕДОМЛЕНИЯ И ЗВУК ---
             SectionLabel(stringResource(R.string.settings_notifications))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
@@ -218,17 +220,15 @@ fun SettingsScreen(
                 )
             }
             Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
-                // Звук уведомлений: встроенные ZED / стандартный / системный picker
                 DataButton(
                     label = stringResource(R.string.settings_sound) + ": " + soundName,
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
                     onClick = rememberHapticClick { showSoundSheet = true }
                 )
-                // Полноэкранные оповещения (Android 14+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    val nm = context.getSystemService(NotificationManager::class.java)
-                    if (!nm.canUseFullScreenIntent()) {
+                    val nm = ContextCompat.getSystemService(context, NotificationManager::class.java)
+                    if (nm != null && !nm.canUseFullScreenIntent()) {
                         DataButton(
                             label = stringResource(R.string.settings_fullscreen),
                             color = colors.warning,
@@ -251,6 +251,32 @@ fun SettingsScreen(
                     color = colors.textSecondary,
                     borderColor = colors.borderVisible,
                     onClick = rememberHapticClick { viewModel.sendTestNotification() }
+                )
+            }
+
+            HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
+
+            // --- GLYPH-АКЦЕНТЫ ---
+            SectionLabel(stringResource(R.string.settings_glyph_section))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_glyph),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.textPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = settings.glyphEnabled,
+                    onCheckedChange = { viewModel.setGlyphEnabled(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.accent,
+                        checkedTrackColor = colors.accentSubtle,
+                        uncheckedThumbColor = colors.textSecondary,
+                        uncheckedTrackColor = colors.surfaceRaised
+                    )
                 )
             }
 
@@ -310,6 +336,22 @@ fun SettingsScreen(
                     color = colors.textSecondary
                 )
             }
+
+            // --- ЦИТАТА: пиксельный шрифт, симметрично, по центру ---
+            Text(
+                text = stringResource(R.string.settings_quote),
+                style = TextStyle(
+                    fontFamily = DotoFont,
+                    fontSize = 11.sp,
+                    lineHeight = 18.sp,
+                    letterSpacing = 0.08.em,
+                    textAlign = TextAlign.Center,
+                    color = colors.textDisabled
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.xl)
+            )
         }
 
         SnackbarHost(
@@ -392,7 +434,6 @@ private fun SoundSheet(
     val context = LocalContext.current
     val colors = LocalZedColors.current
 
-    // Предпрослушивание: один Ringtone, глушим при выходе из листа
     var preview by remember { mutableStateOf<Ringtone?>(null) }
     DisposableEffect(Unit) {
         onDispose { runCatching { preview?.stop() } }
@@ -426,7 +467,6 @@ private fun SoundSheet(
                 modifier = Modifier.padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm)
             )
 
-            // Стандартный системный звук
             SoundRow(
                 label = stringResource(R.string.sound_default),
                 selected = currentUri.isBlank(),
