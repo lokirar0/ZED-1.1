@@ -60,7 +60,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // Glyph-акценты: световые вспышки на ключевых событиях (включаются в J3)
+    // Glyph-акценты: световые вспышки на ключевых событиях (подключаются в J3)
     fun setGlyphEnabled(value: Boolean) {
         viewModelScope.launch { settingsRepository.setGlyphEnabled(value) }
     }
