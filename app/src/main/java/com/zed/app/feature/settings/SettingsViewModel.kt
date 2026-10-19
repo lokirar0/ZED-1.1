@@ -51,13 +51,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     // Звук уведомлений: сохраняем Uri в устойчивой форме raw/имя
-    // (числовые id оболочками отбрасываются) и пересоздаём каналы
+    // и пересоздаём каналы с новым звуком и ритм-вибрацией
     fun setNotificationSound(uri: String) {
         viewModelScope.launch {
             val normalized = NotificationHelper.normalizeSoundUri(context, uri)
             settingsRepository.setNotificationSound(normalized)
             NotificationHelper.ensureChannels(context, normalized)
         }
+    }
+
+    // Glyph-акценты: световые вспышки на ключевых событиях (включаются в J3)
+    fun setGlyphEnabled(value: Boolean) {
+        viewModelScope.launch { settingsRepository.setGlyphEnabled(value) }
     }
 
     // Тестовое уведомление: читаем звук честно через first()
