@@ -31,7 +31,7 @@ import coil.gif.GifDecoder
 // dot-matrix оверлей (DotMatrixOverlay), плеер не остаётся пустым.
 // ============================================================
 
-// Динамический список R.raw.fx_01..fx_99 (0 пропускаются)
+// Динамический список R.raw.fx_01..fx_99 (нулевые id пропускаются)
 fun embeddedGifRes(context: Context): List<Int> {
     val res = context.resources
     val pkg = context.packageName
