@@ -11,6 +11,7 @@ import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.util.DoseScheduleCalculator
 import com.zed.app.core.domain.util.StreakCalculator
 import com.zed.app.core.notifications.ReminderScheduler
+import com.zed.app.ui.GlyphBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
@@ -54,7 +55,7 @@ class HabitsViewModel @Inject constructor(
     private var lastHabit: Habit? = null
     private var lastCompletions: List<HabitCompletion> = emptyList()
 
-    // Минутный тикер: метка курса («СЛЕД. 14:00») обновляется сама (фикс ZED-005)
+    // Минутный тикер: метка курса обновляется сама
     private val tick = flow {
         while (true) {
             emit(Unit)
@@ -101,6 +102,9 @@ class HabitsViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HabitsUiState())
 
     fun toggle(habitId: Int) {
+        // Glyph-вспышка только при отметке «выполнено» (не при снятии)
+        val item = state.value.habits.firstOrNull { it.id == habitId }
+        if (item != null && !item.doneToday) GlyphBus.fire()
         viewModelScope.launch { repository.toggle(habitId, LocalDate.now().toEpochDay()) }
     }
 
