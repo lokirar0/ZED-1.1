@@ -1,7 +1,7 @@
 package com.zed.app.core.widgets
 
 import android.app.PendingIntent
-import android.app.AppWidgetManager
+import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
@@ -17,7 +17,6 @@ import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // ============================================================
