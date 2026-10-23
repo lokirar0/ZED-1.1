@@ -1,12 +1,14 @@
 package com.zed.app.core.widgets
 
 import android.app.PendingIntent
-import android.app.AppWidgetManager
+import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import androidx.media3.session.MediaController
@@ -145,8 +147,13 @@ class PlayerWidgetProvider : AppWidgetProvider() {
     private fun loadArt(context: Context, controller: MediaController?): Bitmap? {
         val uri = controller?.currentMediaItem?.mediaMetadata?.artworkUri ?: return null
         return runCatching {
-            context.contentResolver.loadThumbnail(uri, android.util.Size(256, 256))
-        }.getOrNull() as? Bitmap
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Третий аргумент (CancellationSignal) обязателен в Kotlin — null
+                context.contentResolver.loadThumbnail(uri, android.util.Size(256, 256), null)
+            } else {
+                context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+            }
+        }.getOrNull()
     }
 
     private fun broadcastPi(context: Context, action: String, req: Int): PendingIntent =
