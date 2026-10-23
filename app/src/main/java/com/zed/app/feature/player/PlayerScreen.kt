@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -149,8 +150,8 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.2f))
 
-        // Обложка: прозрачная подложка; поверх — встроенные GIF из APK
-        // (fx_01..fx_26), а если их нет — нативный dot-matrix оверлей
+        // Обложка: прозрачная подложка; поверх — GIF из APK в такт музыке
+        // (уровень/бас/пауза приходят из аудиопроцессора), иначе dot-matrix
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -165,7 +166,12 @@ fun PlayerScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(16.dp))
             )
-            ZedPlayerOverlay(Modifier.matchParentSize())
+            ZedPlayerOverlay(
+                modifier = Modifier.matchParentSize(),
+                level = viewModel::audioLevel,
+                bass = viewModel::audioBass,
+                playing = { state.isPlaying }
+            )
         }
 
         Spacer(Modifier.height(ZedSpacing.xl))
@@ -378,7 +384,8 @@ fun PlayerScreen(
     }
 }
 
-// Очередь: тап — играть, долгий тап + драг — переместить, кнопки + / вверх / вниз
+// Очередь: открывается С ИГРАЮЩЕГО ТРЕКА (лента вверх/вниз от него),
+// тап — играть, долгий тап + драг — переместить, кнопки + / вверх / вниз
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSheet(
@@ -392,6 +399,11 @@ private fun QueueSheet(
     val colors = LocalZedColors.current
     val density = LocalDensity.current
     val rowPx = with(density) { 56.dp.toPx() }
+
+    // Старт ленты с текущей позиции воспроизведения
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = queueIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
+    )
 
     var draggedId by remember { mutableStateOf<Long?>(null) }
     var acc by remember { mutableStateOf(0f) }
@@ -409,7 +421,7 @@ private fun QueueSheet(
         )
         Spacer(Modifier.height(ZedSpacing.sm))
 
-        LazyColumn {
+        LazyColumn(state = listState) {
             itemsIndexed(queue, key = { _, t -> t.id }) { index, track ->
                 Row(
                     Modifier
