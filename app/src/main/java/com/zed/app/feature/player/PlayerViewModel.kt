@@ -21,6 +21,7 @@ import com.zed.app.core.media.AudioEffectsManager
 import com.zed.app.core.media.LocalAudioScanner
 import com.zed.app.core.settings.SettingsRepository
 import com.zed.app.core.settings.parseEqGains
+import com.zed.app.ui.GlyphBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
@@ -101,9 +102,7 @@ class PlayerViewModel @Inject constructor(
         val token = SessionToken(context, ComponentName(context, ZedPlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
         future.addListener({
-            // ВАЖНО: сначала присваиваем controller, ПОТОМ любая работа с ним.
-            // Раньше playTrackById вызывался до присвоения поля и молча выходил
-            // на `controller ?: return` — запрос из поиска терялся навсегда.
+            // Сначала присваиваем controller, ПОТОМ любая работа с ним
             val c = runCatching { future.get() }.getOrNull()
             if (c != null) {
                 controller = c
@@ -118,14 +117,11 @@ class PlayerViewModel @Inject constructor(
                 if (_state.value.queue.isNotEmpty() && c.mediaItemCount == 0) {
                     pushQueueToPlayer()
                 }
-                // Трек из поиска: библиотека может быть ещё не готова —
-                // playTrackById сам отложится (deferredPlayId) и доиграет в refresh()
                 if (pendingPlayId != -1L) {
                     val id = pendingPlayId
                     pendingPlayId = -1L
                     playTrackById(id)
                 }
-                // Страховка: индекс, отложенный до подключения контроллера
                 if (pendingPlayIndex >= 0) {
                     val idx = pendingPlayIndex
                     pendingPlayIndex = -1
@@ -156,7 +152,6 @@ class PlayerViewModel @Inject constructor(
             if (controller != null && !st.isPlaying && st.current == null && st.queue.isNotEmpty()) {
                 pushQueueToPlayer()
             }
-            // Отложенный запрос из поиска: библиотека готова — играем
             if (deferredPlayId != -1L) {
                 val id = deferredPlayId
                 deferredPlayId = -1L
@@ -165,9 +160,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // Воспроизвести трек по id (поиск, шорткаты).
-    // Не готова библиотека → откладываем id. Нет контроллера → откладываем индекс.
-    // Оба отложенных запроса выполняются автоматически, потеря невозможна.
     fun playTrackById(id: Long) {
         val st = _state.value
         if (st.tracks.isEmpty()) {
@@ -244,7 +236,6 @@ class PlayerViewModel @Inject constructor(
         pushQueueToPlayer(resetPosition = false)
     }
 
-    // Заливка очереди в плеер. resetPosition=true — новый список с 0:00
     private fun pushQueueToPlayer(resetPosition: Boolean = false) {
         val c = controller ?: return
         val st = _state.value
@@ -302,6 +293,8 @@ class PlayerViewModel @Inject constructor(
     fun toggleFavorite() {
         val id = _state.value.current?.id ?: return
         val add = id !in _state.value.favoriteIds
+        // Glyph-вспышка только при ПОСТАНОВКЕ лайка
+        if (add) GlyphBus.fire()
         viewModelScope.launch { playerRepository.setFavorite(id, add) }
     }
 
@@ -417,7 +410,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    // Тикер позиции: 2 раза в секунду и ТОЛЬКО во время воспроизведения
     private fun startStopTicker(playing: Boolean) {
         if (playing && tickerJob == null) {
             tickerJob = viewModelScope.launch {
