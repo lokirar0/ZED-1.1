@@ -6,6 +6,7 @@ import com.zed.app.core.domain.model.Course
 import com.zed.app.core.domain.model.DoseMark
 import com.zed.app.core.domain.repository.CourseRepository
 import com.zed.app.core.domain.util.DoseScheduleCalculator
+import com.zed.app.ui.GlyphBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -33,7 +34,7 @@ data class CourseUiItem(
     val status: Int,            // 0 = не начался, 1 = идёт, 2 = завершён
     val startLabel: String,     // «16 октября 2026»
     val intervalLabel: String,  // «2 ч» / «2 ч 30 м» / «45 м»
-    val doses: List<DoseUi>,    // приёмы на сегодня (пусто, если курс неактивен)
+    val doses: List<DoseUi>,    // приёмы на сегодня
     val takenCount: Int,
     val doseCount: Int
 )
@@ -57,6 +58,13 @@ class CoursesViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CoursesUiState())
 
     fun toggleDose(courseId: Int, doseMinutes: Int) {
+        // Glyph-вспышка только когда приём СТАНОВИТСЯ принятым
+        val wasTaken = state.value.courses
+            .firstOrNull { it.id == courseId }
+            ?.doses
+            ?.firstOrNull { it.minutes == doseMinutes }
+            ?.taken ?: false
+        if (!wasTaken) GlyphBus.fire()
         viewModelScope.launch {
             repository.toggleDose(courseId, LocalDate.now().toEpochDay(), doseMinutes)
         }
