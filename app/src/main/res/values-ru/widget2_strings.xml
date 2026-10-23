@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_player_idle">НИЧЕГО НЕ ИГРАЕТ</string>
+    <string name="widget_credits_empty">НЕТ КРЕДИТОВ</string>
+    <string name="widget_paid">ОПЛАЧЕНО</string>
+    <string name="widget_overdue">ПРОСРОЧЕНО</string>
+    <string name="widget_day">Д-%1$d</string>
+</resources>
