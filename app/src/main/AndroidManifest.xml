@@ -11,7 +11,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- Вибрация ритмом ZED для будильников курсов -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
@@ -54,8 +53,9 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!-- Виджеты Glance: Today и Budget -->
         <receiver
-            android:name=".core.widgets.TodayWidgetProvider"
+            android:name=".core.widgets.TodayWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -66,7 +66,7 @@
         </receiver>
 
         <receiver
-            android:name=".core.widgets.BudgetWidgetProvider"
+            android:name=".core.widgets.BudgetWidgetReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -74,6 +74,29 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/budget_widget_info" />
+        </receiver>
+
+        <!-- Виджеты RemoteViews: Плеер с обложкой и Календарь кредитов -->
+        <receiver
+            android:name=".core.widgets.PlayerWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/player_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".core.widgets.CreditsWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/credits_widget_info" />
         </receiver>
 
         <service
