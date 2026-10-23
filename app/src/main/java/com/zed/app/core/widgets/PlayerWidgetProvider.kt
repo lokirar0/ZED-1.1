@@ -7,8 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.os.Build
+import android.util.Size
 import android.view.View
 import android.widget.RemoteViews
 import androidx.media3.session.MediaController
@@ -21,13 +20,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// ============================================================
 // Виджет «ZED · PLAYER»: обложка + трек + play/pause + next.
-// Читает состояние напрямую из MediaSession через MediaController
-// (работает даже когда приложение убито). Кнопки шлют broadcast
-// сюда же и управляют сессией: playPause / seekToNextMediaItem.
-// Обновление: кнопки, выход из приложения (рефрешер), цикл 30 мин.
-// ============================================================
+// Читает состояние напрямую из MediaSession через MediaController.
 class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
@@ -44,13 +38,15 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                         val controller = connect(context)
                         try {
                             if (controller != null) {
-                                if (intent.action == ACTION_TOGGLE) controller.playPause()
-                                else controller.seekToNextMediaItem()
+                                if (intent.action == ACTION_TOGGLE) {
+                                    if (controller.isPlaying) controller.pause() else controller.play()
+                                } else {
+                                    controller.seekToNextMediaItem()
+                                }
                             }
                         } finally {
                             controller?.release()
                         }
-                        // Даём сессии применить команду и перерисовываем виджет
                         delay(300)
                         updateNow(context)
                     } finally {
@@ -76,8 +72,6 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             }
         }
     }
-
-    // --- приватное ---
 
     private fun connect(context: Context): MediaController? = runCatching {
         val token = SessionToken(context, ComponentName(context, ZedPlaybackService::class.java))
@@ -143,16 +137,10 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    // Обложка из artworkUri медиасессии (content://media/...)
     private fun loadArt(context: Context, controller: MediaController?): Bitmap? {
         val uri = controller?.currentMediaItem?.mediaMetadata?.artworkUri ?: return null
         return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Третий аргумент (CancellationSignal) обязателен в Kotlin — null
-                context.contentResolver.loadThumbnail(uri, android.util.Size(256, 256), null)
-            } else {
-                context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-            }
+            context.contentResolver.loadThumbnail(uri, Size(256, 256), null)
         }.getOrNull()
     }
 
