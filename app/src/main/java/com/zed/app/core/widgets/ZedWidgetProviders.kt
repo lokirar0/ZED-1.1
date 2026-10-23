@@ -1,197 +1,140 @@
 package com.zed.app.core.widgets
 
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.glance.GlanceId
-import androidx.glance.GlanceModifier
-import androidx.glance.action.actionStartActivity
-import androidx.glance.action.clickable
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.updateAll
-import androidx.glance.background
-import androidx.glance.color.ColorProvider
-import androidx.glance.layout.Box
-import androidx.glance.layout.Column
-import androidx.glance.layout.Row
-import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
-import androidx.glance.layout.height
-import androidx.glance.layout.padding
-import androidx.glance.layout.size
-import androidx.glance.layout.width
-import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
-import com.zed.app.MainActivity
+import android.widget.RemoteViews
+import com.zed.app.R
 import com.zed.app.core.domain.model.TransactionType
 import com.zed.app.core.domain.repository.HabitRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.domain.util.MoneyFormatter
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
+import dagger.hilt.android.AndroidEntryPoint
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import javax.inject.Inject
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Токены виджетов: подложка surface и акцент (True Black для AMOLED)
-private val WSurface = ColorProvider(Color(0xFF111111), Color(0xFF111111))
-private val WAccent = ColorProvider(Color(0xFFD71921), Color(0xFFD71921))
-private val WText = ColorProvider(Color(0xFFE8E8E8), Color(0xFFE8E8E8))
-private val WDim = ColorProvider(Color(0xFF333333), Color(0xFF333333))
-private val WGray = ColorProvider(Color(0xFF999999), Color(0xFF999999))
+// ============================================================
+// Виджеты ZED на классических RemoteViews (стабильный системный
+// API, без Glance и его версионных сюрпризов):
+// Today  — прогресс привычек за день + точечная неделя;
+// Budget — баланс месяца, прогноз, полоса расхода.
+// Данные читаются в фоне (goAsync), UI обновляется updateAppWidget.
+// ============================================================
 
-// Hilt-доступ к репозиториям из виджетов (вне Compose-дерева приложения)
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface WidgetDataEntryPoint {
-    fun habitRepository(): HabitRepository
-    fun transactionRepository(): TransactionRepository
-}
+@AndroidEntryPoint
+class TodayWidgetProvider : AppWidgetProvider() {
 
-// ================= ВИДЖЕТ «TODAY» =================
-class TodayWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val ep = EntryPointAccessors.fromApplication(context, WidgetDataEntryPoint::class.java)
-        val habits = ep.habitRepository().getHabitsOnce()
-        val completions = ep.habitRepository().observeCompletions().first()
-        val today = LocalDate.now().toEpochDay()
-        val doneIds = completions.filter { it.day == today }.map { it.habitId }.toSet()
-        val done = habits.count { it.id in doneIds }
-        val total = habits.size
-        val week = (6 downTo 0).map { off -> completions.any { it.day == today - off } }
+    @Inject lateinit var habitRepository: HabitRepository
 
-        content {
-            Column(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(WSurface)
-                    .padding(12.dp)
-                    .clickable(actionStartActivity<MainActivity>())
-            ) {
-                Text(
-                    text = "ZED · TODAY",
-                    style = TextStyle(color = WGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "$done/$total",
-                    modifier = GlanceModifier.padding(top = 4.dp),
-                    style = TextStyle(color = WText, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                )
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
-                    week.forEach { flag ->
-                        Box(
-                            modifier = GlanceModifier
-                                .size(10.dp)
-                                .padding(1.dp)
-                                .background(if (flag) WAccent else WDim)
-                        ) { }
-                    }
+    override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val habits = habitRepository.getHabitsOnce()
+                val completions = habitRepository.observeCompletions().first()
+                val today = LocalDate.now().toEpochDay()
+                val doneIds = completions.filter { it.day == today }.map { it.habitId }.toSet()
+                val done = habits.count { it.id in doneIds }
+                val week = (6 downTo 0).map { off -> completions.any { it.day == today - off } }
+
+                val views = RemoteViews(context.packageName, R.layout.widget_today)
+                views.setTextViewText(R.id.widget_today_count, "$done/${habits.size}")
+                week.forEach { flag ->
+                    views.addView(
+                        R.id.widget_today_dots,
+                        RemoteViews(
+                            context.packageName,
+                            if (flag) R.layout.widget_dot_on else R.layout.widget_dot_off
+                        )
+                    )
                 }
+                ids.forEach { mgr.updateAppWidget(it, views) }
+            } finally {
+                pending.finish()
             }
         }
     }
 }
 
-class TodayWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = TodayWidget()
-}
+@AndroidEntryPoint
+class BudgetWidgetProvider : AppWidgetProvider() {
 
-// ================= ВИДЖЕТ «BUDGET» =================
-class BudgetWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val ep = EntryPointAccessors.fromApplication(context, WidgetDataEntryPoint::class.java)
-        val txs = ep.transactionRepository().observeTransactions().first()
-        val zone = ZoneId.systemDefault()
-        val month = YearMonth.now()
-        val today = LocalDate.now()
-        val inMonth = txs.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month }
-        val income = inMonth.filter { it.type == TransactionType.INCOME }.sumOf { it.amountMinor }
-        val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
-        val balance = income - expense
-        val dayOfMonth = today.dayOfMonth
-        val projected = if (dayOfMonth > 0) expense * month.lengthOfMonth() / dayOfMonth else expense
-        val forecast = income - projected
-        val ratio = if (income > 0) (expense.toFloat() / income).coerceIn(0f, 1f) else 0f
-        val filled = (ratio * 16).toInt()
+    @Inject lateinit var transactionRepository: TransactionRepository
 
-        content {
-            Column(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(WSurface)
-                    .padding(12.dp)
-                    .clickable(actionStartActivity<MainActivity>())
-            ) {
-                Text(
-                    text = "ZED · BUDGET",
-                    style = TextStyle(color = WGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val txs = transactionRepository.observeTransactions().first()
+                val zone = ZoneId.systemDefault()
+                val month = YearMonth.now()
+                val today = LocalDate.now()
+                val inMonth = txs.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month }
+                val income = inMonth.filter { it.type == TransactionType.INCOME }.sumOf { it.amountMinor }
+                val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
+                val balance = income - expense
+                val dayOfMonth = today.dayOfMonth
+                val projected = if (dayOfMonth > 0) expense * month.lengthOfMonth() / dayOfMonth else expense
+                val forecast = income - projected
+                val ratio = if (income > 0) (expense.toFloat() / income).coerceIn(0f, 1f) else 0f
+                val filled = (ratio * 16).toInt()
+
+                val views = RemoteViews(context.packageName, R.layout.widget_budget)
+                views.setTextViewText(
+                    R.id.widget_budget_balance,
+                    (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance))
                 )
-                Text(
-                    text = (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance)),
-                    modifier = GlanceModifier.padding(top = 4.dp),
-                    style = TextStyle(
-                        color = if (balance < 0) WAccent else WText,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                views.setTextColor(
+                    R.id.widget_budget_balance,
+                    if (balance < 0) 0xFFD71921.toInt() else 0xFFE8E8E8.toInt()
+                )
+                views.setTextViewText(
+                    R.id.widget_budget_forecast,
+                    "FORECAST " + (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast))
+                )
+                views.setTextColor(
+                    R.id.widget_budget_forecast,
+                    if (forecast < 0) 0xFFD71921.toInt() else 0xFF999999.toInt()
+                )
+                for (i in 0 until 16) {
+                    views.addView(
+                        R.id.widget_budget_bar,
+                        RemoteViews(
+                            context.packageName,
+                            if (i < filled) R.layout.widget_seg_on else R.layout.widget_seg_off
+                        )
                     )
-                )
-                Text(
-                    text = "FORECAST " + (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast)),
-                    modifier = GlanceModifier.padding(top = 2.dp),
-                    style = TextStyle(
-                        color = if (forecast < 0) WAccent else WGray,
-                        fontSize = 10.sp
-                    )
-                )
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(top = 8.dp)) {
-                    for (i in 0 until 16) {
-                        Box(
-                            modifier = GlanceModifier
-                                .width(10.dp)
-                                .height(8.dp)
-                                .padding(1.dp)
-                                .background(if (i < filled) WAccent else WDim)
-                        ) { }
-                    }
                 }
+                ids.forEach { mgr.updateAppWidget(it, views) }
+            } finally {
+                pending.finish()
             }
         }
     }
 }
 
-class BudgetWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = BudgetWidget()
-}
-
-// ================= РЕФРЕШЕР ВСЕХ ВИДЖЕТОВ =================
+// ================= РЕФРЕШЕР ВСЕХ ЧЕТЫРЁХ ВИДЖЕТОВ =================
 // Вызывается при уходе приложения в фон (MainActivity.onPause):
-// Glance-виджеты (Today/Budget) обновляются через updateAll,
-// RemoteViews-виджеты (Player/Credits) — broadcast'ом onUpdate.
+// Today, Budget, Player, Credits получают свежие данные сразу.
 object ZedWidgetRefresher {
     fun update(context: Context) {
-        CoroutineScope(Dispatchers.Default).launch {
-            runCatching { TodayWidget().updateAll(context) }
-            runCatching { BudgetWidget().updateAll(context) }
-        }
-        refreshRemote(context, PlayerWidgetProvider::class.java)
-        refreshRemote(context, CreditsWidgetProvider::class.java)
+        refresh(context, TodayWidgetProvider::class.java)
+        refresh(context, BudgetWidgetProvider::class.java)
+        refresh(context, PlayerWidgetProvider::class.java)
+        refresh(context, CreditsWidgetProvider::class.java)
     }
 
-    private fun refreshRemote(context: Context, cls: Class<out android.appwidget.AppWidgetProvider>) {
+    private fun refresh(context: Context, cls: Class<out AppWidgetProvider>) {
         val mgr = AppWidgetManager.getInstance(context)
         val ids = mgr.getAppWidgetIds(ComponentName(context, cls))
         if (ids.isEmpty()) return
