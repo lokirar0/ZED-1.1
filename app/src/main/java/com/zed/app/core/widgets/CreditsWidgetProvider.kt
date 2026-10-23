@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import com.zed.app.MainActivity
 import com.zed.app.R
@@ -17,15 +18,12 @@ import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// ============================================================
 // Виджет «ZED · CREDITS»: список ближайших платежей по кредитам.
 // Строка: название | статус (Д-N / ОПЛАЧЕНО / ПРОСРОЧЕНО) | сумма.
 // Красным — просрочка и платежи ближе 3 дней, серым — оплачено.
-// Тап по виджету открывает приложение. Обновление: рефрешер при
-// выходе из приложения + системный цикл 30 минут.
-// ============================================================
 @AndroidEntryPoint
 class CreditsWidgetProvider : AppWidgetProvider() {
 
@@ -46,8 +44,6 @@ class CreditsWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    // --- приватное ---
-
     private suspend fun render(context: Context, mgr: AppWidgetManager, ids: IntArray) {
         val credits = creditRepository.getCreditsOnce()
         val payments = creditRepository.getPaymentsOnce().groupBy { it.creditId }
@@ -64,7 +60,6 @@ class CreditsWidgetProvider : AppWidgetProvider() {
                 row.setTextViewText(R.id.row_sum, "")
                 views.addView(R.id.widget_credits_rows, row)
             } else {
-                // Ближайшие платежи сверху: сортировка по дням до списания
                 val sorted = credits.sortedBy { credit ->
                     val paidMonths = payments[credit.id]?.map { it.yearMonth }?.toSet() ?: emptySet()
                     val (date, paidThisMonth) =
