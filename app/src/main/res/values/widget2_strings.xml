@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_player_idle">NOTHING PLAYING</string>
+    <string name="widget_credits_empty">NO CREDITS</string>
+    <string name="widget_paid">PAID</string>
+    <string name="widget_overdue">OVERDUE</string>
+    <string name="widget_day">D-%1$d</string>
+</resources>
