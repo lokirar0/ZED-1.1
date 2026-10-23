@@ -47,14 +47,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Токены виджетов: подложка surface и акцент (True Black для AMOLED)
 private val WSurface = ColorProvider(Color(0xFF111111), Color(0xFF111111))
 private val WAccent = ColorProvider(Color(0xFFD71921), Color(0xFFD71921))
 private val WText = ColorProvider(Color(0xFFE8E8E8), Color(0xFFE8E8E8))
 private val WDim = ColorProvider(Color(0xFF333333), Color(0xFF333333))
 private val WGray = ColorProvider(Color(0xFF999999), Color(0xFF999999))
 
-// Hilt-доступ к репозиториям из виджетов (вне Compose-дерева приложения)
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface WidgetDataEntryPoint {
@@ -62,7 +60,6 @@ interface WidgetDataEntryPoint {
     fun transactionRepository(): TransactionRepository
 }
 
-// ================= ВИДЖЕТ «TODAY» =================
 class TodayWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val ep = EntryPointAccessors.fromApplication(context, WidgetDataEntryPoint::class.java)
@@ -110,7 +107,6 @@ class TodayWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = TodayWidget()
 }
 
-// ================= ВИДЖЕТ «BUDGET» =================
 class BudgetWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val ep = EntryPointAccessors.fromApplication(context, WidgetDataEntryPoint::class.java)
@@ -177,7 +173,6 @@ class BudgetWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = BudgetWidget()
 }
 
-// ================= РЕФРЕШЕР ВСЕХ ВИДЖЕТОВ =================
 object ZedWidgetRefresher {
     fun update(context: Context) {
         CoroutineScope(Dispatchers.Default).launch {
