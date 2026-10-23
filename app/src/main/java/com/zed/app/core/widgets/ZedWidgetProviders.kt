@@ -1,7 +1,9 @@
 package com.zed.app.core.widgets
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
-import androidx.compose.runtime.Composable
+import android.content.Intent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -177,35 +179,26 @@ class BudgetWidgetReceiver : GlanceAppWidgetReceiver() {
 
 // ================= РЕФРЕШЕР ВСЕХ ВИДЖЕТОВ =================
 // Вызывается при уходе приложения в фон (MainActivity.onPause):
-// все четыре виджета получают свежие данные сразу.
+// Glance-виджеты (Today/Budget) обновляются через updateAll,
+// RemoteViews-виджеты (Player/Credits) — broadcast'ом onUpdate.
 object ZedWidgetRefresher {
     fun update(context: Context) {
         CoroutineScope(Dispatchers.Default).launch {
             runCatching { TodayWidget().updateAll(context) }
             runCatching { BudgetWidget().updateAll(context) }
         }
-        // RemoteViews-виджеты: дёргаем onUpdate broadcast'ом
         refreshRemote(context, PlayerWidgetProvider::class.java)
         refreshRemote(context, CreditsWidgetProvider::class.java)
     }
 
     private fun refreshRemote(context: Context, cls: Class<out android.appwidget.AppWidgetProvider>) {
-        val mgr = android.appwidget.AppWidgetManager.getInstance(context)
-        val ids = mgr.getAppWidgetIds(ComponentNameSafe.name(context, cls))
+        val mgr = AppWidgetManager.getInstance(context)
+        val ids = mgr.getAppWidgetIds(ComponentName(context, cls))
         if (ids.isEmpty()) return
         val intent = Intent(context, cls).apply {
-            action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
         }
         context.sendBroadcast(intent)
     }
 }
-
-// Компонент-имя без лишних импортов в теле рефрешера
-private object ComponentNameSafe {
-    fun name(context: Context, cls: Class<*>): android.content.ComponentName =
-        android.content.ComponentName(context, cls)
-}
-
-// Импорт Intent нужен рефрешеру
-private typealias Intent = android.content.Intent
