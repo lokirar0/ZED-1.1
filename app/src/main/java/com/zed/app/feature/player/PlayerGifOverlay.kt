@@ -3,7 +3,6 @@ package com.zed.app.feature.player
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Movie
-import android.graphics.Paint
 import android.os.SystemClock
 import android.view.View
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -19,20 +18,33 @@ import androidx.compose.ui.viewinterop.AndroidView
 
 // ============================================================
 // Оверлей плеера: 26 встроенных GIF из res/raw (fx_01..fx_26).
-// Декодер — системный android.graphics.Movie: НУЛЬ внешних
-// зависимостей, потоковая декодация кадров без загрузки всего
-// файла в память. Отрисовка — обычный Android View через
-// AndroidView: только родной android.graphics.Canvas, без
-// экзотических Compose graphics API.
+// Декодер — системный android.graphics.Movie (нуль внешних зависимостей).
 //
-// ЛЮБОЕ РАЗРЕШЕНИЕ GIF: кадр вписывается в квадрат 1:1 целиком
-// и центрируется (scale по меньшей оси + смещение к центру) —
-// «выровнено под ровный квадрат, по центру», без искажений.
-//
-// Долгий тап по обложке листает GIF по кругу.
-// Если в res/raw нет ни одного fx_* — рисуется нативный
-// dot-matrix оверлей (DotMatrixOverlay), плеер не остаётся пустым.
+// 1) ПОСЛЕДНИЙ ВЫБРАННЫЙ GIF: индекс хранится в GifIndexStore
+//    (SharedPreferences) — переживает выход из плеера, переключение
+//    вкладок и перезапуск приложения.
+// 2) В ТАКТ С МУЗЫКОЙ: скорость кадров пропорциональна уровню звука
+//    (audioLevel), бас даёт лёгкий пульс масштаба (audioBass),
+//    на паузе GIF замирает на текущем кадре.
+// 3) ЛЮБОЕ РАЗРЕШЕНИЕ: кадр вписывается в квадрат 1:1 целиком и
+//    центрируется — без искажений и обрезки.
+// Долгий тап — следующий GIF по кругу.
+// Нет fx_* в res/raw — рисуется нативный dot-matrix оверлей.
 // ============================================================
+
+// Хранилище последнего выбранного GIF (переживает перезапуски)
+object GifIndexStore {
+    private const val NAME = "zed_gif_prefs"
+    private const val KEY = "gif_index"
+
+    fun get(context: Context): Int =
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY, 0)
+
+    fun set(context: Context, index: Int) {
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .edit().putInt(KEY, index).apply()
+    }
+}
 
 // Динамический список R.raw.fx_01..fx_99 (нулевые id пропускаются)
 fun embeddedGifRes(context: Context): List<Int> {
@@ -43,22 +55,35 @@ fun embeddedGifRes(context: Context): List<Int> {
     }
 }
 
-// Точка входа: GIF из APK или нативные точки, если GIF нет
+// Точка входа: GIF из APK или нативные точки, если GIF нет.
+// Провайдеры звука приходят из PlayerViewModel (аудиопроцессор).
 @Composable
-fun ZedPlayerOverlay(modifier: Modifier = Modifier) {
+fun ZedPlayerOverlay(
+    modifier: Modifier = Modifier,
+    level: () -> Float = { 0f },
+    bass: () -> Float = { 0f },
+    playing: () -> Boolean = { false }
+) {
     val context = LocalContext.current
     val models = remember(context) { embeddedGifRes(context) }
     if (models.isEmpty()) {
         DotMatrixOverlay(modifier)
     } else {
-        MovieGifOverlay(models, modifier)
+        MovieGifOverlay(models, modifier, level, bass, playing)
     }
 }
 
 @Composable
-private fun MovieGifOverlay(models: List<Int>, modifier: Modifier) {
+private fun MovieGifOverlay(
+    models: List<Int>,
+    modifier: Modifier,
+    level: () -> Float,
+    bass: () -> Float,
+    playing: () -> Boolean
+) {
     val context = LocalContext.current
-    var index by remember { mutableStateOf(0) }
+    // Стартуем с ПОСЛЕДНЕГО ВЫБРАННОГО GIF, а не с первого
+    var index by remember { mutableStateOf(GifIndexStore.get(context).mod(models.size)) }
     val safeIndex = index.mod(models.size)
 
     // Movie из raw-ресурса; передекодируем только при смене индекса
@@ -70,37 +95,64 @@ private fun MovieGifOverlay(models: List<Int>, modifier: Modifier) {
 
     AndroidView(
         modifier = modifier.pointerInput(models) {
-            detectTapGestures(onLongPress = { index = (index + 1).mod(models.size) })
+            detectTapGestures(onLongPress = {
+                index = (index + 1).mod(models.size)
+                GifIndexStore.set(context, index)
+            })
         },
         factory = { ctx -> MovieView(ctx) },
-        update = { view -> view.setMovie(movie) }
+        update = { view -> view.bind(movie, level, bass, playing) }
     )
 }
 
-// View, которое крутит Movie: кадр по времени + invalidate() для
-// следующего кадра (синхронно с vsync). Масштаб/центрирование — в onDraw.
+// View, которое крутит Movie В ТАКТ С МУЗЫКОЙ:
+// — скорость кадров = f(уровень звука): тише → медленнее, бит → быстрее;
+// — бас слегка пульсирует масштабом;
+// — пауза = стоп-кадр (время не течёт).
 private class MovieView(context: Context) : View(context) {
 
     private var movie: Movie? = null
-    private var startMs = SystemClock.uptimeMillis()
+    private var levelProvider: () -> Float = { 0f }
+    private var bassProvider: () -> Float = { 0f }
+    private var playingProvider: () -> Boolean = { false }
 
-    @Suppress("unused")
-    private val paint = Paint().apply { isFilterBitmap = false }
+    private var movieTimeMs = 0f
+    private var lastFrameMs = SystemClock.uptimeMillis()
 
-    fun setMovie(m: Movie?) {
-        movie = m
-        startMs = SystemClock.uptimeMillis()
+    fun bind(
+        m: Movie?,
+        level: () -> Float,
+        bass: () -> Float,
+        playing: () -> Boolean
+    ) {
+        if (m !== movie) {
+            movie = m
+            movieTimeMs = 0f
+        }
+        levelProvider = level
+        bassProvider = bass
+        playingProvider = playing
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         val m = movie ?: return
-        // Длительность цикла: из метаданных GIF, иначе дефолт 3 секунды
-        val dur = if (m.duration() > 0) m.duration() else 3000
-        m.setTime(((SystemClock.uptimeMillis() - startMs) % dur).toInt())
+        val now = SystemClock.uptimeMillis()
+        val dt = (now - lastFrameMs).coerceAtMost(100L)
+        lastFrameMs = now
 
-        // Вписываем целиком и центрируем: масштаб по меньшей оси + смещение
-        val scale = minOf(width.toFloat() / m.width(), height.toFloat() / m.height())
+        val dur = if (m.duration() > 0) m.duration().toFloat() else 3000f
+
+        // Играет музыка → время GIF течёт со скоростью, зависящей от уровня;
+        // пауза → кадр замирает (в такт тишине)
+        if (playingProvider()) {
+            movieTimeMs = (movieTimeMs + dt * (0.35f + levelProvider() * 2.6f)) % dur
+        }
+        m.setTime(movieTimeMs.toInt())
+
+        // Вписываем целиком и центрируем + лёгкий пульс от баса
+        val pulse = 1f + bassProvider() * 0.06f
+        val scale = minOf(width.toFloat() / m.width(), height.toFloat() / m.height()) * pulse
         val dx = (width - m.width() * scale) / 2f
         val dy = (height - m.height() * scale) / 2f
 
@@ -110,7 +162,6 @@ private class MovieView(context: Context) : View(context) {
         m.draw(canvas, 0f, 0f)
         canvas.restore()
 
-        // Запрашиваем следующий кадр
         invalidate()
     }
 }
