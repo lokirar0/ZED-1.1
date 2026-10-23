@@ -10,6 +10,7 @@ import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.domain.util.MoneyFormatter
 import com.zed.app.core.domain.util.PaymentCalculator
 import com.zed.app.core.notifications.ReminderScheduler
+import com.zed.app.ui.GlyphBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
@@ -89,6 +90,8 @@ class CreditsViewModel @Inject constructor(
     }
 
     fun togglePaid(creditId: Int, paid: Boolean) {
+        // Glyph-вспышка при отметке «оплачено»
+        if (paid) GlyphBus.fire()
         viewModelScope.launch {
             val yearMonth = YearMonth.now().toString()
             repository.setPaid(creditId, yearMonth, paid)
