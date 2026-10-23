@@ -30,6 +30,7 @@ import com.zed.app.core.settings.ThemeMode
 import com.zed.app.core.settings.applyAppLocale
 import com.zed.app.core.widgets.ZedWidgetRefresher
 import com.zed.app.navigation.ZedNavHost
+import com.zed.app.ui.GlyphFlashOverlay
 import com.zed.app.ui.PermissionsGate
 import com.zed.app.ui.theme.ZedBlack
 import com.zed.app.ui.theme.ZedTheme
@@ -115,15 +116,20 @@ class MainActivity : AppCompatActivity() {
                     ThemeMode.DARK -> true
                 }
                 ZedTheme(darkTheme = dark) {
-                    // После онбординга и до прохождения гейта разрешений —
-                    // показываем экран выдачи разрешений вместо приложения
-                    if (s.onboardingCompleted && !s.permissionsAsked) {
-                        PermissionsGate(onDone = { viewModel.markPermissionsAsked() })
-                    } else {
-                        ZedNavHost(
-                            startDestination = if (s.onboardingCompleted) "habits" else "onboarding",
-                            startAction = startAction
-                        )
+                    // Оверлей вспышек рисуется ПОВЕРХ всего контента,
+                    // касания не перехватывает (у Canvas нет pointerInput)
+                    Box(Modifier.fillMaxSize()) {
+                        if (s.onboardingCompleted && !s.permissionsAsked) {
+                            PermissionsGate(onDone = { viewModel.markPermissionsAsked() })
+                        } else {
+                            ZedNavHost(
+                                startDestination = if (s.onboardingCompleted) "habits" else "onboarding",
+                                startAction = startAction
+                            )
+                        }
+                        if (s.glyphEnabled) {
+                            GlyphFlashOverlay()
+                        }
                     }
                 }
             }
