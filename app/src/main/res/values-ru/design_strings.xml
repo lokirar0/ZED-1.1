@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="habits_today">СЕГОДНЯ</string>
+    <string name="habits_completed_format">%1$d%% | ВЫПОЛНЕНО</string>
+    <string name="habits_section">ПРИВЫЧКИ</string>
+    <string name="habits_streak">СЧЁТЧИКИ СЕРИИ</string>
+    <string name="habits_days_format">%1$d дн.</string>
+</resources>
