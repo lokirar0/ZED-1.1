@@ -3,4 +3,8 @@
     <string name="settings_glyph_section">GLYPH</string>
     <string name="settings_glyph">Световые акценты на событиях</string>
     <string name="settings_quote">Руки Бога так тряслись, когда он создавал наш свет</string>
+    <string name="settings_interface">ИНТЕРФЕЙС</string>
+    <string name="settings_nav_icons">ИКОНКИ МЕНЮ</string>
+    <string name="nav_lines">ЛИНИИ</string>
+    <string name="nav_dots">ТОЧКИ</string>
 </resources>
