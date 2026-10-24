@@ -1,237 +1,195 @@
 package com.zed.app.feature.finance
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zed.app.core.data.local.CategoryEntity
-import com.zed.app.core.data.local.displayName
 import com.zed.app.core.domain.model.Transaction
 import com.zed.app.core.domain.model.TransactionType
 import com.zed.app.core.domain.repository.CategoryRepository
 import com.zed.app.core.domain.repository.TransactionRepository
 import com.zed.app.core.domain.util.MoneyFormatter
-import com.zed.app.core.export.CsvExporter
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
-import kotlin.math.abs
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class TransactionUiItem(
+// Столбик графика расходов за месяц
+data class MonthBarUi(
+    val label: String,
+    val fraction: Float,
+    val sumText: String
+)
+
+// Категория с суммой расходов за текущий месяц
+data class CategorySumUi(
     val id: Int,
-    val isExpense: Boolean,
-    val amountText: String,
-    val categoryName: String,
-    val dateLabel: String,
-    val note: String,
-    val isRecurring: Boolean
+    val name: String,
+    val sumText: String,
+    val fraction: Float
 )
 
-data class MonthSummaryUi(
-    val incomeText: String,
-    val expenseText: String,
-    val balanceText: String,
-    val balanceNegative: Boolean,
-    val forecastText: String,
-    val forecastNegative: Boolean,
-    val perDayText: String
-)
-
-data class MonthPointUi(
-    val label: String,
-    val income: Long,
-    val expense: Long
-)
-
-data class QuickTx(
-    val label: String,
-    val categoryId: Int,
-    val amountMinor: Long,
-    val uses: Int
+// Строка транзакции в списке
+data class TransactionUi(
+    val id: Int,
+    val title: String,
+    val subtitle: String,
+    val sumText: String,
+    val isExpense: Boolean
 )
 
 data class FinanceUiState(
-    val transactions: List<TransactionUiItem> = emptyList(),
-    val summary: MonthSummaryUi = MonthSummaryUi("0", "0", "0", false, "0", false, "0"),
-    val chart: List<MonthPointUi> = emptyList(),
-    val monthLabel: String = "",
-    val calendarWeeks: List<List<CalendarDayUi?>> = emptyList(),
-    val quick: List<QuickTx> = emptyList(),
+    val balanceText: String = "0",
+    val incomeText: String = "0",
+    val expenseText: String = "0",
+    val forecastText: String = "0",
+    val monthBars: List<MonthBarUi> = emptyList(),
+    val categorySums: List<CategorySumUi> = emptyList(),
+    val transactions: List<TransactionUi> = emptyList(),
+    val quickCategories: List<CategorySumUi> = emptyList(),
     val loaded: Boolean = false
 )
 
 @HiltViewModel
 class FinanceViewModel @Inject constructor(
-    private val repository: TransactionRepository,
-    categoryRepository: CategoryRepository,
-    @ApplicationContext private val context: Context
+    private val transactionRepository: TransactionRepository,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
-    val allTransactions: StateFlow<List<Transaction>> = repository.observeTransactions()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Свежий снимок транзакций для undo
+    private var transactionsNow: List<Transaction> = emptyList()
+    private var lastTransaction: Transaction? = null
 
-    private val categoriesNow = MutableStateFlow<List<CategoryEntity>>(emptyList())
+    val state: StateFlow<FinanceUiState> = combine(
+        transactionRepository.observeTransactions(),
+        categoryRepository.observeCategories()
+    ) { txs, categories ->
+        transactionsNow = txs
+        build(txs, categories)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinanceUiState())
 
-    // Снимок последней удалённой операции для ОТМЕНЫ
-    private var lastTx: Transaction? = null
-
-    val state: StateFlow<FinanceUiState> =
-        combine(repository.observeTransactions(), categoryRepository.observeCategories()) { list, cats ->
-            categoriesNow.value = cats
-            mapToState(list, cats)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FinanceUiState())
-
-    init {
-        viewModelScope.launch { categoryRepository.ensureSeeded() }
-        viewModelScope.launch { repository.materializeRecurring() }
-    }
-
-    // Удаление со снимком для отмены
+    // Свайп-удаление со снимком для отмены
     fun deleteWithSnapshot(id: Int) {
-        lastTx = allTransactions.value.firstOrNull { it.id == id }
-        viewModelScope.launch { repository.delete(id) }
-    }
-
-    // ОТМЕНА: вставляем операцию обратно с тем же id
-    fun restoreLast() {
-        val tx = lastTx ?: return
-        lastTx = null
-        viewModelScope.launch { repository.insert(tx) }
-    }
-
-    fun quickAdd(q: QuickTx) {
         viewModelScope.launch {
-            repository.insert(
+            lastTransaction = transactionsNow.firstOrNull { it.id == id } ?: return@launch
+            transactionRepository.delete(id)
+        }
+    }
+
+    // ОТМЕНА: возвращаем удалённую транзакцию
+    fun restoreLast() {
+        viewModelScope.launch {
+            val tx = lastTransaction ?: return@launch
+            transactionRepository.upsert(tx)
+            lastTransaction = null
+        }
+    }
+
+    // Quick-Add: тап по плитке категории = повторить её последнюю сумму сегодня
+    fun quickAdd(categoryId: Int) {
+        viewModelScope.launch {
+            val txs = transactionRepository.observeTransactions().first()
+            val last = txs.firstOrNull {
+                it.categoryId == categoryId && it.type == TransactionType.EXPENSE
+            }
+            val amount = last?.amountMinor ?: 0L
+            if (amount <= 0L) return@launch
+            transactionRepository.upsert(
                 Transaction(
+                    id = 0,
                     type = TransactionType.EXPENSE,
-                    amountMinor = q.amountMinor,
-                    categoryId = q.categoryId,
-                    note = q.label
+                    amountMinor = amount,
+                    categoryId = categoryId,
+                    note = last.note,
+                    dateMillis = System.currentTimeMillis()
                 )
             )
         }
     }
 
-    suspend fun exportTo(uri: Uri): Boolean =
-        CsvExporter.write(
-            context,
-            uri,
-            CsvExporter.buildCsv(allTransactions.value) { t -> categoryNameFor(t, categoriesNow.value) }
-        )
-
     // --- приватное ---
 
-    private fun categoryNameFor(t: Transaction, cats: List<CategoryEntity>): String =
-        cats.firstOrNull { it.id == t.categoryId }?.displayName(context) ?: "—"
-
-    private fun mapToState(list: List<Transaction>, cats: List<CategoryEntity>): FinanceUiState {
-        val locale = Locale.getDefault()
+    private fun build(txs: List<Transaction>, categories: List<com.zed.app.core.domain.model.Category>): FinanceUiState {
         val zone = ZoneId.systemDefault()
-        val dayFmt = DateTimeFormatter.ofPattern("d MMM", locale)
-        val currentMonth = YearMonth.now()
         val today = LocalDate.now()
+        val month = YearMonth.from(today)
+        val catName = categories.associate { it.id to it.name }
 
-        val inMonth = list.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == currentMonth }
+        val inMonth = txs.filter {
+            YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month
+        }
         val income = inMonth.filter { it.type == TransactionType.INCOME }.sumOf { it.amountMinor }
         val expense = inMonth.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
         val balance = income - expense
 
-        val dayOfMonth = today.dayOfMonth
-        val daysInMonth = currentMonth.lengthOfMonth()
-        val projected = if (dayOfMonth > 0) expense.toLong() * daysInMonth / dayOfMonth else expense
+        // Прогноз конца месяца: доход минус экстраполированный расход
+        val day = today.dayOfMonth
+        val projected = if (day > 0) expense * month.lengthOfMonth() / day else expense
         val forecast = income - projected
-        val daysLeft = (daysInMonth - dayOfMonth).coerceAtLeast(1)
-        val perDay = if (balance > 0) balance / daysLeft else 0L
 
-        val chart = (5 downTo 0).map { offset ->
-            val month = currentMonth.minusMonths(offset.toLong())
-            val monthTx = list.filter { YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == month }
-            MonthPointUi(
-                label = month.month.getDisplayName(TextStyle.SHORT, locale).take(3),
-                income = monthTx.filter { it.type == TransactionType.INCOME }.sumOf { it.amountMinor },
-                expense = monthTx.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amountMinor }
+        // График расходов за 6 месяцев
+        val months = (5 downTo 0).map { month.minusMonths(it.toLong()) }
+        val sums = months.map { m ->
+            txs.filter {
+                it.type == TransactionType.EXPENSE &&
+                    YearMonth.from(Instant.ofEpochMilli(it.dateMillis).atZone(zone)) == m
+            }.sumOf { it.amountMinor }
+        }
+        val maxSum = sums.maxOrNull()?.coerceAtLeast(1L) ?: 1L
+        val bars = months.mapIndexed { i, m ->
+            MonthBarUi(
+                label = m.monthValue.toString(),
+                fraction = sums[i].toFloat() / maxSum,
+                sumText = MoneyFormatter.format(sums[i])
             )
         }
 
-        val items = list.map { t ->
-            TransactionUiItem(
-                id = t.id,
-                isExpense = t.type == TransactionType.EXPENSE,
-                amountText = MoneyFormatter.format(t.amountMinor),
-                categoryName = categoryNameFor(t, cats),
-                dateLabel = dayFmt.format(Instant.ofEpochMilli(t.dateMillis).atZone(zone)),
-                note = t.note,
-                isRecurring = t.recurring || t.sourceId != null
-            )
-        }
+        // Категории текущего месяца (только расходы)
+        val byCat = inMonth.filter { it.type == TransactionType.EXPENSE }
+            .groupBy { it.categoryId }
+            .mapValues { entry -> entry.value.sumOf { it.amountMinor } }
+        val maxCat = byCat.values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
+        val catSums = byCat.map { (id, sum) ->
+            CategorySumUi(
+                id = id,
+                name = catName[id] ?: "#$id",
+                sumText = MoneyFormatter.format(sum),
+                fraction = sum.toFloat() / maxCat
+            ).let { it }
+        }.sortedByDescending { it.fraction }
 
-        val quick = list
-            .filter { it.type == TransactionType.EXPENSE && it.sourceId == null }
-            .groupBy { it.categoryId to it.amountMinor }
-            .map { (key, group) ->
-                val (catId, amount) = key
-                val label = group.firstOrNull { it.note.isNotBlank() }?.note
-                    ?: cats.firstOrNull { it.id == catId }?.displayName(context)
-                    ?: "—"
-                QuickTx(label = label, categoryId = catId, amountMinor = amount, uses = group.size)
-            }
-            .sortedWith(compareByDescending<QuickTx> { it.uses }.thenByDescending { it.amountMinor })
-            .take(6)
+        // Плитки Quick-Add: категории, по которым уже есть траты
+        val quick = catSums.take(6)
 
-        val byDay = list.groupBy { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() }
-        val lead = currentMonth.atDay(1).dayOfWeek.value - 1
-        val weeks = mutableListOf<List<CalendarDayUi?>>()
-        val row = MutableList<CalendarDayUi?>(lead) { null }
-        for (d in 1..currentMonth.lengthOfMonth()) {
-            val date = currentMonth.atDay(d)
-            val dayTx = byDay[date].orEmpty()
-            row.add(
-                CalendarDayUi(
-                    day = d,
-                    dateMillis = date.atTime(12, 0).atZone(zone).toInstant().toEpochMilli(),
-                    hasExpense = dayTx.any { it.type == TransactionType.EXPENSE },
-                    hasIncome = dayTx.any { it.type == TransactionType.INCOME },
-                    isToday = date == today
-                )
+        // Список транзакций месяца: свежие сверху
+        val dayFmt = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+        val list = inMonth.sortedByDescending { it.dateMillis }.map { tx ->
+            TransactionUi(
+                id = tx.id,
+                title = if (tx.note.isBlank()) (catName[tx.categoryId] ?: "—") else tx.note,
+                subtitle = Instant.ofEpochMilli(tx.dateMillis).atZone(zone).toLocalDate().format(dayFmt),
+                sumText = (if (tx.type == TransactionType.EXPENSE) "-" else "+") + MoneyFormatter.format(tx.amountMinor),
+                isExpense = tx.type == TransactionType.EXPENSE
             )
-            if (row.size == 7) {
-                weeks.add(row.toList())
-                row.clear()
-            }
-        }
-        if (row.isNotEmpty()) {
-            while (row.size < 7) row.add(null)
-            weeks.add(row.toList())
         }
 
         return FinanceUiState(
-            transactions = items,
-            summary = MonthSummaryUi(
-                incomeText = MoneyFormatter.format(income),
-                expenseText = MoneyFormatter.format(expense),
-                balanceText = (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance)),
-                balanceNegative = balance < 0,
-                forecastText = (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast)),
-                forecastNegative = forecast < 0,
-                perDayText = MoneyFormatter.format(perDay)
-            ),
-            chart = chart,
-            monthLabel = currentMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
-            calendarWeeks = weeks,
-            quick = quick,
+            balanceText = (if (balance < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(balance)),
+            incomeText = MoneyFormatter.format(income),
+            expenseText = MoneyFormatter.format(expense),
+            forecastText = (if (forecast < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(forecast)),
+            monthBars = bars,
+            categorySums = catSums,
+            transactions = list,
+            quickCategories = quick,
             loaded = true
         )
     }
