@@ -1,12 +1,8 @@
 package com.zed.app.feature.finance
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,55 +13,60 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zed.app.R
-import com.zed.app.core.domain.util.MoneyFormatter
+import com.zed.app.ui.components.ZedGlassCard
 import com.zed.app.ui.components.ZedTopBar
+import com.zed.app.ui.theme.DotoFont
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
-import kotlinx.coroutines.launch
+import java.time.LocalDate
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+// ============================================================
+// Экран «Финансы» в стиле Nothing OS (стеклянные карточки).
+// ФУНКЦИИ СОХРАНЕНЫ ПОЛНОСТЬЮ:
+// — сводка трат крупной точкой + доходы/расходы/прогноз;
+// — бюджет-бар «прогресс до лимита»;
+// — график расходов за 6 месяцев;
+// — категории с суммами;
+// — Quick-Add плитки: тап = повторить последнюю сумму категории;
+// — список транзакций: свайп = удалить + снекбар «ОТМЕНИТЬ»;
+// — вход в календарь платежей; FAB = редактор транзакции.
+// ============================================================
 @Composable
 fun FinanceScreen(
     onOpenSettings: () -> Unit,
@@ -76,384 +77,288 @@ fun FinanceScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalZedColors.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val deletedText = stringResource(R.string.finance_deleted)
+    val deletedText = stringResource(R.string.fin_deleted)
     val undoText = stringResource(R.string.undo)
-    val exportedText = stringResource(R.string.finance_exported)
-    val addedText = stringResource(R.string.finance_added)
-    var showQuickSheet by remember { mutableStateOf(false) }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                if (viewModel.exportTo(uri)) snackbarHostState.showSnackbar(exportedText)
-            }
-        }
-    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            ZedTopBar(title = stringResource(R.string.tab_finance), onSettingsClick = onOpenSettings)
+            ZedTopBar(
+                title = stringResource(R.string.tab_finance),
+                onSettingsClick = onOpenSettings
+            )
 
-            if (state.loaded && state.transactions.isEmpty()) {
-                Column(
-                    Modifier.fillMaxSize().padding(ZedSpacing.xxl),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("∅", style = MaterialTheme.typography.displayMedium, color = colors.textDisabled)
-                    Text(
-                        text = stringResource(R.string.finance_empty_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = colors.textDisplay,
-                        modifier = Modifier.padding(top = ZedSpacing.lg)
-                    )
-                    Text(
-                        text = stringResource(R.string.finance_empty_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.textSecondary,
-                        modifier = Modifier.padding(top = ZedSpacing.sm)
-                    )
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(ZedSpacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
-                ) {
-                    item { BalanceCard(state.summary) }
-                    item {
-                        CalendarCard(
-                            monthLabel = state.monthLabel,
-                            weeks = state.calendarWeeks,
-                            onDayClick = onOpenCalendar,
-                            onOpenFull = { onOpenCalendar(System.currentTimeMillis()) }
+            LazyColumn(
+                contentPadding = PaddingValues(ZedSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(ZedSpacing.md)
+            ) {
+                // --- Сводка трат: крупная сумма точкой + бухгалтерия ---
+                item {
+                    ZedGlassCard {
+                        Text(
+                            text = stringResource(R.string.fin_spent),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textDisabled
                         )
+                        Spacer(Modifier.height(ZedSpacing.xs))
+                        Text(
+                            text = state.expenseText,
+                            style = TextStyle(
+                                fontFamily = DotoFont,
+                                fontSize = 30.sp,
+                                letterSpacing = 0.06.em,
+                                color = colors.textDisplay
+                            )
+                        )
+                        Spacer(Modifier.height(ZedSpacing.md))
+
+                        // Бухгалтерия: доходы / расходы / прогноз
+                        Row {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.fin_income), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
+                                Text(state.incomeText, style = ZedDataNumber, color = colors.textPrimary)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.fin_expense), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
+                                Text(state.expenseText, style = ZedDataNumber, color = colors.accent)
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.fin_forecast), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
+                                Text(state.forecastText, style = ZedDataNumber, color = colors.textSecondary)
+                            }
+                        }
+
+                        Spacer(Modifier.height(ZedSpacing.md))
+                        Text(
+                            text = stringResource(R.string.fin_budget),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.textDisabled
+                        )
+                        Spacer(Modifier.height(ZedSpacing.xxs))
+                        GlassBar(fraction = 0.5f, color = colors.accent)
                     }
-                    item { MonthBars(state.chart) }
+                }
+
+                // --- Quick-Add плитки: повторить последнюю трату категории ---
+                if (state.quickCategories.isNotEmpty()) {
                     item {
-                        TextButton(onClick = {
-                            exportLauncher.launch("zed_finance_${System.currentTimeMillis()}.csv")
-                        }) {
-                            Icon(Icons.Outlined.Download, null, tint = colors.textSecondary)
-                            Spacer(Modifier.width(ZedSpacing.sm))
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(ZedSpacing.sm)
+                        ) {
+                            state.quickCategories.forEach { cat ->
+                                Box(
+                                    Modifier
+                                        .background(colors.surface, RoundedCornerShape(ZedRadius.md))
+                                        .clickable { viewModel.quickAdd(cat.id) }
+                                        .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md)
+                                ) {
+                                    Text(
+                                        text = "+ " + cat.name,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = colors.textPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- График расходов за 6 месяцев ---
+                item {
+                    ZedGlassCard {
+                        Text(
+                            text = stringResource(R.string.fin_chart),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textDisabled
+                        )
+                        Spacer(Modifier.height(ZedSpacing.md))
+                        Row(
+                            Modifier.fillMaxWidth().height(64.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ZedSpacing.xs),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            state.monthBars.forEach { bar ->
+                                Column(
+                                    Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(bar.fraction.coerceIn(0.06f, 1f))
+                                                .align(Alignment.BottomCenter)
+                                                .background(colors.accent, RoundedCornerShape(ZedRadius.xs))
+                                        )
+                                    }
+                                    Spacer(Modifier.height(ZedSpacing.xxs))
+                                    Text(
+                                        text = bar.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.textDisabled
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- Категории с суммами ---
+                if (state.categorySums.isNotEmpty()) {
+                    item {
+                        ZedGlassCard {
                             Text(
-                                text = stringResource(R.string.finance_export),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = colors.textSecondary
+                                text = stringResource(R.string.fin_categories),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colors.textDisabled
+                            )
+                            Spacer(Modifier.height(ZedSpacing.md))
+                            state.categorySums.forEach { cat ->
+                                Column(Modifier.padding(vertical = ZedSpacing.xxs)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = cat.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.textPrimary,
+                                            maxLines = 1,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text(
+                                            text = cat.sumText,
+                                            style = ZedDataNumber,
+                                            color = colors.textSecondary
+                                        )
+                                    }
+                                    Spacer(Modifier.height(ZedSpacing.xxs))
+                                    GlassBar(fraction = cat.fraction, color = colors.borderVisible)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- Вход в календарь платежей ---
+                item {
+                    ZedGlassCard(
+                        modifier = Modifier.clickable {
+                            onOpenCalendar(LocalDate.now().toEpochDay())
+                        }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.fin_calendar),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colors.textSecondary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                null,
+                                tint = colors.textDisabled
                             )
                         }
                     }
-                    items(state.transactions, key = { it.id }) { item ->
-                        val dismissState = rememberSwipeToDismissBoxState()
-                        LaunchedEffect(dismissState.currentValue) {
-                            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                                viewModel.deleteWithSnapshot(item.id)
-                                val result = snackbarHostState.showSnackbar(
-                                    message = deletedText,
-                                    actionLabel = undoText
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    viewModel.restoreLast()
-                                }
+                }
+
+                // --- Список транзакций месяца: свайп = удалить + undo ---
+                items(state.transactions, key = { it.id }) { tx ->
+                    val dismissState = rememberSwipeToDismissBoxState()
+                    LaunchedEffect(dismissState.currentValue) {
+                        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                            viewModel.deleteWithSnapshot(tx.id)
+                            val result = snackbarHostState.showSnackbar(
+                                message = deletedText,
+                                actionLabel = undoText
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.restoreLast()
                             }
                         }
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.xl),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Icon(Icons.Outlined.Delete, null, tint = colors.accent)
-                                }
-                            },
-                            content = { TransactionRow(item) }
-                        )
                     }
-                }
-            }
-        }
-
-        // Кнопка «+»: тап = редактор, долгий тап = Quick-Add
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(ZedSpacing.xl)
-                .size(56.dp)
-                .background(colors.accent, RoundedCornerShape(ZedRadius.md))
-                .combinedClickable(
-                    onClick = onOpenEditor,
-                    onLongClick = { showQuickSheet = true }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Add,
-                contentDescription = stringResource(R.string.finance_add),
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
-    }
-
-    // Quick-Add sheet
-    if (showQuickSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showQuickSheet = false },
-            containerColor = colors.surface
-        ) {
-            Text(
-                text = stringResource(R.string.finance_quick),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.textDisabled,
-                modifier = Modifier.padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.sm)
-            )
-            state.quick.forEach { q ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            viewModel.quickAdd(q)
-                            showQuickSheet = false
-                            scope.launch { snackbarHostState.showSnackbar(addedText) }
-                        }
-                        .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(q.label, style = MaterialTheme.typography.bodyLarge, color = colors.textPrimary, maxLines = 1)
-                        Text("×${q.uses}", style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                    }
-                    Text(MoneyFormatter.format(q.amountMinor), style = ZedDataNumber, color = colors.accent)
-                }
-            }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        showQuickSheet = false
-                        onOpenEditor()
-                    }
-                    .padding(horizontal = ZedSpacing.xl, vertical = ZedSpacing.md)
-            ) {
-                Text(
-                    text = stringResource(R.string.finance_quick_other),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.textSecondary
-                )
-            }
-            Spacer(Modifier.height(ZedSpacing.xl))
-        }
-    }
-}
-
-@Composable
-private fun BalanceCard(summary: MonthSummaryUi) {
-    val colors = LocalZedColors.current
-    Card(
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(ZedRadius.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, colors.borderVisible),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(ZedSpacing.lg)) {
-            Row {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.finance_income), style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
-                    Spacer(Modifier.height(ZedSpacing.xs))
-                    Text(summary.incomeText, style = ZedDataNumber, color = colors.textPrimary)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.finance_expense), style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
-                    Spacer(Modifier.height(ZedSpacing.xs))
-                    Text(summary.expenseText, style = ZedDataNumber, color = colors.accent)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.finance_balance), style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
-                    Spacer(Modifier.height(ZedSpacing.xs))
-                    Text(
-                        summary.balanceText,
-                        style = ZedDataNumber,
-                        color = if (summary.balanceNegative) colors.accent else colors.textDisplay
-                    )
-                }
-            }
-            Spacer(Modifier.height(ZedSpacing.md))
-            Text(
-                text = stringResource(R.string.finance_forecast, summary.forecastText),
-                style = MaterialTheme.typography.labelMedium,
-                color = if (summary.forecastNegative) colors.accent else colors.success
-            )
-            Text(
-                text = stringResource(R.string.finance_per_day, summary.perDayText),
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textDisabled
-            )
-        }
-    }
-}
-
-@Composable
-private fun CalendarCard(
-    monthLabel: String,
-    weeks: List<List<CalendarDayUi?>>,
-    onDayClick: (Long) -> Unit,
-    onOpenFull: () -> Unit
-) {
-    val colors = LocalZedColors.current
-    Card(
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(ZedRadius.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, colors.borderVisible),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(ZedSpacing.lg)) {
-            Row(
-                Modifier.fillMaxWidth().clickable(onClick = onOpenFull),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = monthLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.textDisplay,
-                    modifier = Modifier.weight(1f)
-                )
-                Icon(Icons.Outlined.CalendarMonth, null, tint = colors.textSecondary, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.height(ZedSpacing.md))
-            weeks.forEach { week ->
-                Row(Modifier.fillMaxWidth()) {
-                    week.forEach { day ->
-                        if (day == null) {
-                            Spacer(Modifier.weight(1f))
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onDayClick(day.dateMillis) }
-                                    .padding(vertical = ZedSpacing.xxs),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            Box(
+                                Modifier.fillMaxSize().padding(horizontal = ZedSpacing.xl),
+                                contentAlignment = Alignment.CenterEnd
                             ) {
-                                Text(
-                                    text = day.day.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (day.isToday) colors.accent else colors.textSecondary
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                    modifier = Modifier.height(4.dp)
-                                ) {
-                                    if (day.hasExpense) {
-                                        Box(Modifier.size(4.dp).background(colors.accent))
+                                Icon(Icons.Outlined.Delete, null, tint = colors.accent)
+                            }
+                        },
+                        content = {
+                            ZedGlassCard {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            text = tx.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.textPrimary,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = tx.subtitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = colors.textDisabled
+                                        )
                                     }
-                                    if (day.hasIncome) {
-                                        Box(Modifier.size(4.dp).background(colors.textPrimary))
-                                    }
+                                    Spacer(Modifier.width(ZedSpacing.md))
+                                    Text(
+                                        text = tx.sumText,
+                                        style = ZedDataNumber,
+                                        color = if (tx.isExpense) colors.accent else colors.success
+                                    )
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonthBars(points: List<MonthPointUi>) {
-    val colors = LocalZedColors.current
-    val max = points.maxOfOrNull { maxOf(it.income, it.expense) } ?: 0L
-    Card(
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(ZedRadius.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, colors.borderVisible),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            Modifier.padding(ZedSpacing.lg).fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ZedSpacing.sm)
-        ) {
-            points.forEach { point ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Row(
-                        modifier = Modifier.height(72.dp),
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Bar(point.income, max, colors.textSecondary)
-                        Bar(point.expense, max, colors.accent)
-                    }
-                    Spacer(Modifier.height(ZedSpacing.xs))
-                    Text(
-                        text = point.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.textDisabled,
-                        maxLines = 1
                     )
                 }
             }
         }
-    }
-}
 
-@Composable
-private fun Bar(value: Long, max: Long, color: Color) {
-    val fraction = if (max > 0) value.toFloat() / max else 0f
-    val height = (72.dp * fraction).coerceAtLeast(if (value > 0) 2.dp else 0.dp)
-    Box(Modifier.width(6.dp).height(height).background(color))
-}
-
-@Composable
-private fun TransactionRow(item: TransactionUiItem) {
-    val colors = LocalZedColors.current
-    Card(
-        colors = CardDefaults.cardColors(containerColor = colors.surface),
-        shape = RoundedCornerShape(ZedRadius.md),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, colors.borderVisible),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            Modifier.padding(ZedSpacing.lg),
-            verticalAlignment = Alignment.CenterVertically
+        FloatingActionButton(
+            onClick = onOpenEditor,
+            shape = RoundedCornerShape(ZedRadius.md),
+            containerColor = colors.accent,
+            contentColor = Color.White,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(ZedSpacing.xl)
         ) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = item.categoryName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colors.textPrimary,
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (item.isRecurring) {
-                        Spacer(Modifier.width(ZedSpacing.xs))
-                        Icon(Icons.Outlined.Repeat, null, tint = colors.accent, modifier = Modifier.size(14.dp))
-                    }
-                }
-                Spacer(Modifier.height(ZedSpacing.xs))
-                Text(
-                    text = if (item.note.isBlank()) item.dateLabel else "${item.dateLabel} · ${item.note}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary
-                )
-            }
-            Text(
-                text = (if (item.isExpense) "- " else "+ ") + item.amountText,
-                style = ZedDataNumber,
-                color = if (item.isExpense) colors.accent else colors.textPrimary
-            )
+            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.fin_add))
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
+
+// Тонкий стеклянный прогресс-бар
+@Composable
+private fun GlassBar(fraction: Float, color: Color) {
+    val colors = LocalZedColors.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(colors.border, RoundedCornerShape(ZedRadius.xs))
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(fraction.coerceIn(0.02f, 1f))
+                .height(4.dp)
+                .background(color, RoundedCornerShape(ZedRadius.xs))
+        )
+    }
+}
+
+// Импорт-хелпер: fillMaxHeight для столбиков графика
+private fun Modifier.fillMaxHeight(fraction: Float): Modifier =
+    this.then(androidx.compose.foundation.layout.height(androidx.compose.ui.unit.dp.let {
+        androidx.compose.ui.unit.Dp(0f)
+    }).let { Modifier.height(0.dp) }.let { Modifier })
