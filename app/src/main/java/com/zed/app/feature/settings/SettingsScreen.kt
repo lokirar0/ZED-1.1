@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zed.app.BuildConfig
 import com.zed.app.R
 import com.zed.app.core.settings.ThemeMode
+import com.zed.app.ui.components.NavIconStore
 import com.zed.app.ui.components.rememberHapticClick
 import com.zed.app.ui.theme.DotoFont
 import com.zed.app.ui.theme.LocalZedColors
@@ -90,6 +91,9 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearDialog by remember { mutableStateOf(false) }
     var showSoundSheet by remember { mutableStateOf(false) }
+
+    // Текущий набор иконок меню (наблюдаемый: меню перерисуется сразу)
+    val navIconSet by NavIconStore.observe(context)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -187,6 +191,22 @@ fun SettingsScreen(
                         onClick = rememberHapticClick { viewModel.setLanguage(code) }
                     )
                 }
+
+            HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
+
+            // --- ИНТЕРФЕЙС: сменяемые иконки меню ---
+            SectionLabel(stringResource(R.string.settings_interface))
+            Column(Modifier.padding(horizontal = ZedSpacing.lg)) {
+                DataButton(
+                    label = stringResource(R.string.settings_nav_icons) + ": " +
+                        stringResource(if (navIconSet == 1) R.string.nav_dots else R.string.nav_lines),
+                    color = colors.textSecondary,
+                    borderColor = colors.borderVisible,
+                    onClick = rememberHapticClick {
+                        NavIconStore.set(context, (navIconSet + 1) % 2)
+                    }
+                )
+            }
 
             HorizontalDivider(color = colors.border, modifier = Modifier.padding(vertical = ZedSpacing.sm))
 
@@ -441,7 +461,6 @@ private fun SoundSheet(
         onDispose { runCatching { preview?.stop() } }
     }
 
-    // Встроенные звуки ZED из res/raw
     val zedSounds = remember(context) {
         listOf(
             "PACE" to R.raw.pace_np,
