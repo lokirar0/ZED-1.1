@@ -1,6 +1,7 @@
 package com.zed.app.feature.habits
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,7 +111,6 @@ fun HabitsScreen(
                         )
                         Spacer(Modifier.height(ZedSpacing.md))
 
-                        // Прогресс за сегодня
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = stringResource(R.string.habits_section),
@@ -133,7 +133,6 @@ fun HabitsScreen(
                         )
                         Spacer(Modifier.height(ZedSpacing.md))
 
-                        // Счётчики серии: сегменты 7 дней
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = stringResource(R.string.habits_streak),
@@ -167,9 +166,7 @@ fun HabitsScreen(
 
                 // --- Вход в курсы приёма (стеклянная строка) ---
                 item {
-                    ZedGlassCard(
-                        modifier = Modifier.clickable(onClick = onOpenCourses)
-                    ) {
+                    ZedGlassCard(modifier = Modifier.clickable(onClick = onOpenCourses)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = state.coursesLabel
@@ -195,9 +192,7 @@ fun HabitsScreen(
                 // --- Вход в статистику (стеклянная строка) ---
                 if (state.todayTotal > 0) {
                     item {
-                        ZedGlassCard(
-                            modifier = Modifier.clickable(onClick = onOpenStats)
-                        ) {
+                        ZedGlassCard(modifier = Modifier.clickable(onClick = onOpenStats)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = stringResource(
@@ -225,7 +220,7 @@ fun HabitsScreen(
                     }
                 }
 
-                // --- Список привычек: стеклянные строки ---
+                // --- Пустое состояние ---
                 if (state.loaded && state.habits.isEmpty()) {
                     item {
                         Column(
@@ -253,6 +248,7 @@ fun HabitsScreen(
                     }
                 }
 
+                // --- Список привычек: стеклянные строки ---
                 items(state.habits, key = { it.id }) { item ->
                     val dismissState = rememberSwipeToDismissBoxState()
                     LaunchedEffect(dismissState.currentValue) {
@@ -326,8 +322,7 @@ private fun HabitGlassRow(
                         if (item.doneToday) {
                             Modifier.background(colors.accent, RoundedCornerShape(ZedRadius.xs))
                         } else {
-                            Modifier.background(Color.Transparent, RoundedCornerShape(ZedRadius.xs))
-                                .then(Modifier.border1dp(colors.borderVisible, RoundedCornerShape(ZedRadius.xs)))
+                            Modifier.border(1.dp, colors.borderVisible, RoundedCornerShape(ZedRadius.xs))
                         }
                     )
                     .clickable(onClick = onToggle),
@@ -395,7 +390,3 @@ private fun ThinBar(fraction: Float, color: Color) {
         )
     }
 }
-
-// Хелпер границы 1dp (чтобы не тащить лишние импорты в тело строки)
-private fun Modifier.border1dp(color: Color, shape: RoundedCornerShape): Modifier =
-    this.then(androidx.compose.foundation.border(1.dp, color, shape))
