@@ -175,24 +175,20 @@ fun FinanceScreen(
                         )
                         Spacer(Modifier.height(ZedSpacing.md))
                         Row(
-                            Modifier.fillMaxWidth().height(64.dp),
-                            horizontalArrangement = Arrangement.spacedBy(ZedSpacing.xs),
-                            verticalAlignment = Alignment.Bottom
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(ZedSpacing.xs)
                         ) {
                             state.monthBars.forEach { bar ->
                                 Column(
                                     Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .weight(1f)
-                                    ) {
+                                    // Поле фиксированной высоты: столбик растёт снизу
+                                    Box(Modifier.height(64.dp).fillMaxWidth()) {
                                         Box(
                                             Modifier
                                                 .fillMaxWidth()
-                                                .fillMaxHeight(bar.fraction.coerceIn(0.06f, 1f))
+                                                .height((64 * bar.fraction.coerceIn(0.06f, 1f)).dp)
                                                 .align(Alignment.BottomCenter)
                                                 .background(colors.accent, RoundedCornerShape(ZedRadius.xs))
                                         )
@@ -289,76 +285,3 @@ fun FinanceScreen(
                                 contentAlignment = Alignment.CenterEnd
                             ) {
                                 Icon(Icons.Outlined.Delete, null, tint = colors.accent)
-                            }
-                        },
-                        content = {
-                            ZedGlassCard {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(
-                                            text = tx.title,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = colors.textPrimary,
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            text = tx.subtitle,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = colors.textDisabled
-                                        )
-                                    }
-                                    Spacer(Modifier.width(ZedSpacing.md))
-                                    Text(
-                                        text = tx.sumText,
-                                        style = ZedDataNumber,
-                                        color = if (tx.isExpense) colors.accent else colors.success
-                                    )
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        FloatingActionButton(
-            onClick = onOpenEditor,
-            shape = RoundedCornerShape(ZedRadius.md),
-            containerColor = colors.accent,
-            contentColor = Color.White,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(ZedSpacing.xl)
-        ) {
-            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.fin_add))
-        }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
-    }
-}
-
-// Тонкий стеклянный прогресс-бар
-@Composable
-private fun GlassBar(fraction: Float, color: Color) {
-    val colors = LocalZedColors.current
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(4.dp)
-            .background(colors.border, RoundedCornerShape(ZedRadius.xs))
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth(fraction.coerceIn(0.02f, 1f))
-                .height(4.dp)
-                .background(color, RoundedCornerShape(ZedRadius.xs))
-        )
-    }
-}
-
-// Импорт-хелпер: fillMaxHeight для столбиков графика
-private fun Modifier.fillMaxHeight(fraction: Float): Modifier =
-    this.then(androidx.compose.foundation.layout.height(androidx.compose.ui.unit.dp.let {
-        androidx.compose.ui.unit.Dp(0f)
-    }).let { Modifier.height(0.dp) }.let { Modifier })
