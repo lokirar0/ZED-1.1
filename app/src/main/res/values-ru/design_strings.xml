@@ -5,4 +5,12 @@
     <string name="habits_section">ПРИВЫЧКИ</string>
     <string name="habits_streak">СЧЁТЧИКИ СЕРИИ</string>
     <string name="habits_days_format">%1$d дн.</string>
+    <string name="fin_spent">СВОДКА ТРАТ</string>
+    <string name="fin_income">ДОХОДЫ</string>
+    <string name="fin_expense">РАСХОДЫ</string>
+    <string name="fin_forecast">ПРОГНОЗ</string>
+    <string name="fin_budget">БЮДЖЕТ · ПРОГРЕСС ДО ЛИМИТА</string>
+    <string name="fin_chart">6 МЕСЯЦЕВ</string>
+    <string name="fin_categories">КАТЕГОРИИ</string>
+    <string name="fin_calendar">КАЛЕНДАРЬ ПЛАТЕЖЕЙ</string>
 </resources>
