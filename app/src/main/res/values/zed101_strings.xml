@@ -3,4 +3,8 @@
     <string name="settings_glyph_section">GLYPH</string>
     <string name="settings_glyph">Light accents on events</string>
     <string name="settings_quote">Hands of God were trembling when he created our light</string>
+    <string name="settings_interface">INTERFACE</string>
+    <string name="settings_nav_icons">MENU ICONS</string>
+    <string name="nav_lines">LINES</string>
+    <string name="nav_dots">DOTS</string>
 </resources>
