@@ -5,4 +5,12 @@
     <string name="habits_section">HABITS</string>
     <string name="habits_streak">STREAK COUNTERS</string>
     <string name="habits_days_format">%1$d days</string>
+    <string name="fin_spent">SPENT SUMMARY</string>
+    <string name="fin_income">INCOME</string>
+    <string name="fin_expense">EXPENDITURE</string>
+    <string name="fin_forecast">FORECAST</string>
+    <string name="fin_budget">BUDGET · PROGRESS TO LIMIT</string>
+    <string name="fin_chart">6 MONTHS</string>
+    <string name="fin_categories">CATEGORIES</string>
+    <string name="fin_calendar">PAYMENT CALENDAR</string>
 </resources>
