@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -55,16 +56,22 @@ import com.zed.app.feature.search.SearchScreen
 import com.zed.app.feature.settings.AnalyticsScreen
 import com.zed.app.feature.settings.SettingsScreen
 import com.zed.app.feature.settings.YearReportScreen
+import com.zed.app.ui.components.NAV_CREDITS
+import com.zed.app.ui.components.NAV_FINANCE
+import com.zed.app.ui.components.NAV_HABITS
+import com.zed.app.ui.components.NAV_PLAYER
+import com.zed.app.ui.components.NavIcon
+import com.zed.app.ui.components.NavIconStore
 import com.zed.app.ui.components.ZedTopBar
 import com.zed.app.ui.navigation.LocalZedActions
 import com.zed.app.ui.navigation.ZedActions
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedSpacing
 
-sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector) {
-    data object Habits : Screen("habits", R.string.tab_habits, Icons.Outlined.CheckCircle)
-    data object Finance : Screen("finance", R.string.tab_finance, Icons.Outlined.AccountBalanceWallet)
-    data object Credits : Screen("credits", R.string.tab_credits, Icons.Outlined.CalendarMonth)
+sealed class Screen(val route: String, val titleRes: Int, val icon: ImageVector, val navKey: String) {
+    data object Habits : Screen("habits", R.string.tab_habits, Icons.Outlined.CheckCircle, NAV_HABITS)
+    data object Finance : Screen("finance", R.string.tab_finance, Icons.Outlined.AccountBalanceWallet, NAV_FINANCE)
+    data object Credits : Screen("credits", R.string.tab_credits, Icons.Outlined.CalendarMonth, NAV_CREDITS)
 
     companion object {
         fun tabs() = listOf(Habits, Finance, Credits)
@@ -85,8 +92,12 @@ fun ZedNavHost(
     startAction: String? = null
 ) {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val tabs = Screen.tabs()
     val tabRoutes = tabs.map { it.route }
+
+    // Сменяемый набор иконок меню (ЛИНИИ / ТОЧКИ)
+    val navIconSet by NavIconStore.observe(context)
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -115,7 +126,7 @@ fun ZedNavHost(
                         tabs.forEach { screen ->
                             val selected = currentRoute == screen.route
                             NavigationBarItem(
-                                icon = { Icon(screen.icon, contentDescription = null) },
+                                icon = { NavIcon(screen.navKey, navIconSet) },
                                 label = {
                                     Text(
                                         text = stringResource(screen.titleRes),
@@ -140,7 +151,7 @@ fun ZedNavHost(
                             )
                         }
                         NavigationBarItem(
-                            icon = { Icon(Icons.Outlined.MusicNote, contentDescription = null) },
+                            icon = { NavIcon(NAV_PLAYER, navIconSet) },
                             label = {
                                 Text(
                                     text = stringResource(R.string.tab_player),
