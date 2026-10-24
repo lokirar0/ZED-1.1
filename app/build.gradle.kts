@@ -116,8 +116,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0")
 
-    // Glance: виджеты Today/Budget на Compose
-    implementation("androidx.glance:glance-appwidget:1.1.1")
+    // Glance 1.0.0: стабильный API, content { } работает без импортов
+    implementation("androidx.glance:glance-appwidget:1.0.0")
 
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
