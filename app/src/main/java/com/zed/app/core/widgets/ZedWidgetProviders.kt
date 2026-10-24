@@ -13,7 +13,6 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
@@ -75,7 +74,7 @@ class TodayWidget : GlanceAppWidget() {
         val total = habits.size
         val week = (6 downTo 0).map { off -> completions.any { it.day == today - off } }
 
-        provideContent {
+        content {
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -129,7 +128,7 @@ class BudgetWidget : GlanceAppWidget() {
         val ratio = if (income > 0) (expense.toFloat() / income).coerceIn(0f, 1f) else 0f
         val filled = (ratio * 16).toInt()
 
-        provideContent {
+        content {
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
