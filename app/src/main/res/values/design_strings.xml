@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="habits_today">TODAY</string>
+    <string name="habits_completed_format">%1$d%% | COMPLETED</string>
+    <string name="habits_section">HABITS</string>
+    <string name="habits_streak">STREAK COUNTERS</string>
+    <string name="habits_days_format">%1$d days</string>
+</resources>
