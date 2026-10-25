@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_today_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -19,15 +20,15 @@
         android:id="@+id/widget_today_count"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
         android:text="0/0"
         android:textColor="#FFE8E8E8"
-        android:textSize="26sp"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:fontFamily="monospace" />
 
     <LinearLayout
-        android:id="@+id/widget_today_dots"
+        android:id="@+id/widget_today_week"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
