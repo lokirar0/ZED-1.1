@@ -99,10 +99,11 @@ class FinanceViewModel @Inject constructor(
     fun quickAdd(categoryId: Int) {
         viewModelScope.launch {
             val txs = transactionRepository.observeTransactions().first()
+            // Сразу разбираем nullable: нет последней траты — выходим
             val last = txs.firstOrNull {
                 it.categoryId == categoryId && it.type == TransactionType.EXPENSE
-            }
-            val amount = last?.amountMinor ?: 0L
+            } ?: return@launch
+            val amount = last.amountMinor
             if (amount <= 0L) return@launch
             transactionRepository.insert(
                 Transaction(
