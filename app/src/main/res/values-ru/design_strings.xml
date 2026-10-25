@@ -20,4 +20,5 @@
     <string name="cr_empty_title">НЕТ КРЕДИТОВ</string>
     <string name="cr_empty_body">Добавь кредит, чтобы следить за платежами и сроками</string>
     <string name="cr_add">ДОБАВИТЬ КРЕДИТ</string>
+    <string name="player_fx_panel">SLOWED + REVERB</string>
 </resources>
