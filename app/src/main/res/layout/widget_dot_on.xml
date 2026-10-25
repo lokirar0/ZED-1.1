@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_dot_view"
     android:layout_width="10dp"
     android:layout_height="10dp"
-    android:layout_margin="1dp"
-    android:background="#FFD71921" />
+    android:layout_marginEnd="3dp" />
