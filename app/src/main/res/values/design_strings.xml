@@ -12,6 +12,8 @@
     <string name="fin_chart">6 MONTHS</string>
     <string name="fin_categories">CATEGORIES</string>
     <string name="fin_calendar">PAYMENT CALENDAR</string>
+    <string name="fin_deleted_tx">Transaction deleted</string>
+    <string name="fin_add_tx">Add transaction</string>
     <string name="cr_calendar">PAYMENT CALENDAR</string>
     <string name="cr_weekdays">Mo,Tu,We,Th,Fr,Sa,Su</string>
     <string name="cr_next">NEXT PAYMENT</string>
