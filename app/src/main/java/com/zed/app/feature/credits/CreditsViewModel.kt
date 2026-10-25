@@ -31,8 +31,8 @@ data class CreditUiItem(
     val days: Long,
     val paidThisMonth: Boolean,
     val countdownDanger: Boolean,
-    val progressFraction: Float, // оплачено месяцев / всего
-    val monthsLabel: String      // «7/24»
+    val progressFraction: Float, // оплачено месяцев в году / 12
+    val monthsLabel: String      // «7/12»
 )
 
 data class CreditsUiState(
@@ -61,6 +61,7 @@ class CreditsViewModel @Inject constructor(
             paymentsNow = payments
             val today = LocalDate.now()
             val paidByCredit = payments.groupBy({ it.creditId }, { it.yearMonth })
+            val yearPrefix = today.year.toString()
 
             val items = credits.map { credit ->
                 val paidMonths = paidByCredit[credit.id]?.toSet() ?: emptySet()
@@ -68,14 +69,10 @@ class CreditsViewModel @Inject constructor(
                     PaymentCalculator.nextUnpaid(credit.paymentDay, today, paidMonths)
                 val days = PaymentCalculator.daysUntil(date, today)
 
-                // Прогресс погашения: отмеченные оплаты / всего месяцев
-                val totalMonths = if (credit.monthlyPaymentMinor > 0) {
-                    ((credit.totalMinor + credit.monthlyPaymentMinor - 1) / credit.monthlyPaymentMinor)
-                        .toInt().coerceAtLeast(1)
-                } else {
-                    1
-                }
-                val paidCount = paidMonths.size.coerceAtMost(totalMonths)
+                // Годовой прогресс: отмеченные оплаты текущего года к 12
+                val paidInYear = payments.count {
+                    it.creditId == credit.id && it.yearMonth.startsWith(yearPrefix)
+                }.coerceAtMost(12)
 
                 CreditUiItem(
                     id = credit.id,
@@ -85,8 +82,8 @@ class CreditsViewModel @Inject constructor(
                     days = days,
                     paidThisMonth = paidThisMonth,
                     countdownDanger = !paidThisMonth && days <= 3,
-                    progressFraction = paidCount.toFloat() / totalMonths,
-                    monthsLabel = "$paidCount/$totalMonths"
+                    progressFraction = paidInYear / 12f,
+                    monthsLabel = "$paidInYear/12"
                 )
             }
 
