@@ -60,9 +60,9 @@ import java.time.LocalDate
 // Экран «Финансы» в стиле Nothing OS (стеклянные карточки).
 // ФУНКЦИИ СОХРАНЕНЫ ПОЛНОСТЬЮ:
 // — сводка трат крупной точкой + доходы/расходы/прогноз;
-// — бюджет-бар «прогресс до лимита»;
+// — бюджет-бар;
 // — график расходов за 6 месяцев;
-// — категории с суммами;
+// — категории с суммами и барами;
 // — Quick-Add плитки: тап = повторить последнюю сумму категории;
 // — список транзакций: свайп = удалить + снекбар «ОТМЕНИТЬ»;
 // — вход в календарь платежей; FAB = редактор транзакции.
@@ -111,19 +111,42 @@ fun FinanceScreen(
                         )
                         Spacer(Modifier.height(ZedSpacing.md))
 
-                        // Бухгалтерия: доходы / расходы / прогноз
                         Row {
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.fin_income), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                                Text(state.incomeText, style = ZedDataNumber, color = colors.textPrimary)
+                                Text(
+                                    text = stringResource(R.string.fin_income),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.textDisabled
+                                )
+                                Text(
+                                    text = state.incomeText,
+                                    style = ZedDataNumber,
+                                    color = colors.textPrimary
+                                )
                             }
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.fin_expense), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                                Text(state.expenseText, style = ZedDataNumber, color = colors.accent)
+                                Text(
+                                    text = stringResource(R.string.fin_expense),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.textDisabled
+                                )
+                                Text(
+                                    text = state.expenseText,
+                                    style = ZedDataNumber,
+                                    color = colors.accent
+                                )
                             }
                             Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.fin_forecast), style = MaterialTheme.typography.labelSmall, color = colors.textDisabled)
-                                Text(state.forecastText, style = ZedDataNumber, color = colors.textSecondary)
+                                Text(
+                                    text = stringResource(R.string.fin_forecast),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.textDisabled
+                                )
+                                Text(
+                                    text = state.forecastText,
+                                    style = ZedDataNumber,
+                                    color = colors.textSecondary
+                                )
                             }
                         }
 
@@ -142,17 +165,23 @@ fun FinanceScreen(
                 if (state.quickCategories.isNotEmpty()) {
                     item {
                         Row(
-                            Modifier
+                            modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(ZedSpacing.sm)
                         ) {
                             state.quickCategories.forEach { cat ->
                                 Box(
-                                    Modifier
-                                        .background(colors.surface, RoundedCornerShape(ZedRadius.md))
+                                    modifier = Modifier
+                                        .background(
+                                            color = colors.surface,
+                                            shape = RoundedCornerShape(ZedRadius.md)
+                                        )
                                         .clickable { viewModel.quickAdd(cat.id) }
-                                        .padding(horizontal = ZedSpacing.lg, vertical = ZedSpacing.md)
+                                        .padding(
+                                            horizontal = ZedSpacing.lg,
+                                            vertical = ZedSpacing.md
+                                        )
                                 ) {
                                     Text(
                                         text = "+ " + cat.name,
@@ -175,22 +204,29 @@ fun FinanceScreen(
                         )
                         Spacer(Modifier.height(ZedSpacing.md))
                         Row(
-                            Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(ZedSpacing.xs)
                         ) {
                             state.monthBars.forEach { bar ->
+                                val barHeight = 64 * bar.fraction.coerceIn(0.06f, 1f)
                                 Column(
-                                    Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    // Поле фиксированной высоты: столбик растёт снизу
-                                    Box(Modifier.height(64.dp).fillMaxWidth()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(64.dp)
+                                    ) {
                                         Box(
-                                            Modifier
+                                            modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height((64 * bar.fraction.coerceIn(0.06f, 1f)).dp)
+                                                .height(barHeight.dp)
                                                 .align(Alignment.BottomCenter)
-                                                .background(colors.accent, RoundedCornerShape(ZedRadius.xs))
+                                                .background(
+                                                    color = colors.accent,
+                                                    shape = RoundedCornerShape(ZedRadius.xs)
+                                                )
                                         )
                                     }
                                     Spacer(Modifier.height(ZedSpacing.xxs))
@@ -254,15 +290,15 @@ fun FinanceScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Icon(
-                                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                null,
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                contentDescription = null,
                                 tint = colors.textDisabled
                             )
                         }
                     }
                 }
 
-                // --- Список транзакций месяца: свайп = удалить + undo ---
+                // --- Список транзакций: свайп = удалить + undo ---
                 items(state.transactions, key = { it.id }) { tx ->
                     val dismissState = rememberSwipeToDismissBoxState()
                     LaunchedEffect(dismissState.currentValue) {
@@ -281,7 +317,91 @@ fun FinanceScreen(
                         state = dismissState,
                         backgroundContent = {
                             Box(
-                                Modifier.fillMaxSize().padding(horizontal = ZedSpacing.xl),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = ZedSpacing.xl),
                                 contentAlignment = Alignment.CenterEnd
                             ) {
-                                Icon(Icons.Outlined.Delete, null, tint = colors.accent)
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = colors.accent
+                                )
+                            }
+                        },
+                        content = {
+                            ZedGlassCard {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            text = tx.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.textPrimary,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = tx.subtitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = colors.textDisabled
+                                        )
+                                    }
+                                    Spacer(Modifier.width(ZedSpacing.md))
+                                    Text(
+                                        text = tx.sumText,
+                                        style = ZedDataNumber,
+                                        color = if (tx.isExpense) colors.accent else colors.success
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = onOpenEditor,
+            shape = RoundedCornerShape(ZedRadius.md),
+            containerColor = colors.accent,
+            contentColor = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(ZedSpacing.xl)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = stringResource(R.string.fin_add)
+            )
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+// Тонкий стеклянный прогресс-бар
+@Composable
+private fun GlassBar(fraction: Float, color: Color) {
+    val colors = LocalZedColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(
+                color = colors.border,
+                shape = RoundedCornerShape(ZedRadius.xs)
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction.coerceIn(0.02f, 1f))
+                .height(4.dp)
+                .background(
+                    color = color,
+                    shape = RoundedCornerShape(ZedRadius.xs)
+                )
+        )
+    }
+}
