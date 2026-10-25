@@ -62,10 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -103,7 +100,8 @@ private val DotTime = TextStyle(
 )
 
 // ============================================================
-// Плеер в стиле Nothing OS: обложка в светящемся контуре,
+// Плеер в стиле Nothing OS: обложка в светящемся контуре
+// (двойная рамка: внешняя мягкая + внутренняя тонкая),
 // кнопки тонкими линиями без заливки, стеклянная панель
 // SLOWED + REVERB с ползунками прямо на экране.
 // ФУНКЦИИ СОХРАНЕНЫ: очередь (drag/кнопки/старт с играющего),
@@ -173,19 +171,13 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.15f))
 
-        // Обложка: светящийся контур + арт + GIF-оверлей в такт музыке
+        // Обложка: светящийся контур двойной рамкой + арт + GIF в такт музыке
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
                 .aspectRatio(1f)
                 .align(Alignment.CenterHorizontally)
-                .drawBehind {
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.16f),
-                        cornerRadius = CornerRadius(18.dp.toPx()),
-                        style = Stroke(6.dp.toPx())
-                    )
-                }
+                .border(6.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
         ) {
             AsyncImage(
