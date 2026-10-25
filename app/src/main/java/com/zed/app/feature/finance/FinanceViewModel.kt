@@ -2,6 +2,7 @@ package com.zed.app.feature.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zed.app.core.data.local.CategoryEntity
 import com.zed.app.core.domain.model.Transaction
 import com.zed.app.core.domain.model.TransactionType
 import com.zed.app.core.domain.repository.CategoryRepository
@@ -15,6 +16,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.math.abs
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -84,11 +86,11 @@ class FinanceViewModel @Inject constructor(
         }
     }
 
-    // ОТМЕНА: возвращаем удалённую транзакцию
+    // ОТМЕНА: возвращаем удалённую транзакцию с прежним id
     fun restoreLast() {
         viewModelScope.launch {
             val tx = lastTransaction ?: return@launch
-            transactionRepository.upsert(tx)
+            transactionRepository.insert(tx)
             lastTransaction = null
         }
     }
@@ -102,7 +104,7 @@ class FinanceViewModel @Inject constructor(
             }
             val amount = last?.amountMinor ?: 0L
             if (amount <= 0L) return@launch
-            transactionRepository.upsert(
+            transactionRepository.insert(
                 Transaction(
                     id = 0,
                     type = TransactionType.EXPENSE,
@@ -117,7 +119,10 @@ class FinanceViewModel @Inject constructor(
 
     // --- приватное ---
 
-    private fun build(txs: List<Transaction>, categories: List<com.zed.app.core.domain.model.Category>): FinanceUiState {
+    private fun build(
+        txs: List<Transaction>,
+        categories: List<CategoryEntity>
+    ): FinanceUiState {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now()
         val month = YearMonth.from(today)
@@ -163,7 +168,7 @@ class FinanceViewModel @Inject constructor(
                 name = catName[id] ?: "#$id",
                 sumText = MoneyFormatter.format(sum),
                 fraction = sum.toFloat() / maxCat
-            ).let { it }
+            )
         }.sortedByDescending { it.fraction }
 
         // Плитки Quick-Add: категории, по которым уже есть траты
@@ -176,16 +181,17 @@ class FinanceViewModel @Inject constructor(
                 id = tx.id,
                 title = if (tx.note.isBlank()) (catName[tx.categoryId] ?: "—") else tx.note,
                 subtitle = Instant.ofEpochMilli(tx.dateMillis).atZone(zone).toLocalDate().format(dayFmt),
-                sumText = (if (tx.type == TransactionType.EXPENSE) "-" else "+") + MoneyFormatter.format(tx.amountMinor),
+                sumText = (if (tx.type == TransactionType.EXPENSE) "-" else "+") +
+                    MoneyFormatter.format(tx.amountMinor),
                 isExpense = tx.type == TransactionType.EXPENSE
             )
         }
 
         return FinanceUiState(
-            balanceText = (if (balance < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(balance)),
+            balanceText = (if (balance < 0) "-" else "") + MoneyFormatter.format(abs(balance)),
             incomeText = MoneyFormatter.format(income),
             expenseText = MoneyFormatter.format(expense),
-            forecastText = (if (forecast < 0) "-" else "") + MoneyFormatter.format(kotlin.math.abs(forecast)),
+            forecastText = (if (forecast < 0) "-" else "") + MoneyFormatter.format(abs(forecast)),
             monthBars = bars,
             categorySums = catSums,
             transactions = list,
