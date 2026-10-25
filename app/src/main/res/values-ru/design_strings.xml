@@ -12,6 +12,8 @@
     <string name="fin_chart">6 МЕСЯЦЕВ</string>
     <string name="fin_categories">КАТЕГОРИИ</string>
     <string name="fin_calendar">КАЛЕНДАРЬ ПЛАТЕЖЕЙ</string>
+    <string name="fin_deleted_tx">Транзакция удалена</string>
+    <string name="fin_add_tx">Добавить транзакцию</string>
     <string name="cr_calendar">КАЛЕНДАРЬ ПЛАТЕЖЕЙ</string>
     <string name="cr_weekdays">Пн,Вт,Ср,Чт,Пт,Сб,Вс</string>
     <string name="cr_next">БЛИЖАЙШИЙ ПЛАТЁЖ</string>
