@@ -31,8 +31,8 @@ data class CreditUiItem(
     val days: Long,
     val paidThisMonth: Boolean,
     val countdownDanger: Boolean,
-    val paidCount: Int,     // оплачено месяцев (для прогресс-бара)
-    val totalMonths: Int    // всего месяцев в кредите
+    val progressFraction: Float, // оплачено месяцев / всего
+    val monthsLabel: String      // «7/24»
 )
 
 data class CreditsUiState(
@@ -67,11 +67,15 @@ class CreditsViewModel @Inject constructor(
                 val (date, paidThisMonth) =
                     PaymentCalculator.nextUnpaid(credit.paymentDay, today, paidMonths)
                 val days = PaymentCalculator.daysUntil(date, today)
+
+                // Прогресс погашения: отмеченные оплаты / всего месяцев
                 val totalMonths = if (credit.monthlyPaymentMinor > 0) {
-                    ((credit.totalMinor + credit.monthlyPaymentMinor - 1) / credit.monthlyPaymentMinor).toInt()
+                    ((credit.totalMinor + credit.monthlyPaymentMinor - 1) / credit.monthlyPaymentMinor)
+                        .toInt().coerceAtLeast(1)
                 } else {
-                    0
+                    1
                 }
+                val paidCount = paidMonths.size.coerceAtMost(totalMonths)
 
                 CreditUiItem(
                     id = credit.id,
@@ -81,8 +85,8 @@ class CreditsViewModel @Inject constructor(
                     days = days,
                     paidThisMonth = paidThisMonth,
                     countdownDanger = !paidThisMonth && days <= 3,
-                    paidCount = paidMonths.size.coerceAtMost(totalMonths.coerceAtLeast(0)),
-                    totalMonths = totalMonths
+                    progressFraction = paidCount.toFloat() / totalMonths,
+                    monthsLabel = "$paidCount/$totalMonths"
                 )
             }
 
