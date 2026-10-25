@@ -20,4 +20,5 @@
     <string name="cr_empty_title">NO CREDITS</string>
     <string name="cr_empty_body">Add a loan to track payments and deadlines</string>
     <string name="cr_add">ADD CREDIT</string>
+    <string name="player_fx_panel">SLOWED + REVERB</string>
 </resources>
