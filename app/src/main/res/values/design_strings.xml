@@ -13,4 +13,11 @@
     <string name="fin_chart">6 MONTHS</string>
     <string name="fin_categories">CATEGORIES</string>
     <string name="fin_calendar">PAYMENT CALENDAR</string>
+    <string name="cr_calendar">PAYMENT CALENDAR</string>
+    <string name="cr_weekdays">Mo,Tu,We,Th,Fr,Sa,Su</string>
+    <string name="cr_next">NEXT PAYMENT</string>
+    <string name="cr_due_format">DUES | %1$s</string>
+    <string name="cr_empty_title">NO CREDITS</string>
+    <string name="cr_empty_body">Add a loan to track payments and deadlines</string>
+    <string name="cr_add">ADD CREDIT</string>
 </resources>
