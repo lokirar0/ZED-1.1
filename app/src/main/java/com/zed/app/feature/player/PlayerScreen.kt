@@ -87,6 +87,7 @@ import com.zed.app.ui.theme.DotoFont
 import com.zed.app.ui.theme.LocalZedColors
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
+import java.util.Locale
 
 private enum class Sheet { NONE, QUEUE, FX, MORE, LYRICS }
 
@@ -101,14 +102,6 @@ private val DotTime = TextStyle(
     letterSpacing = 0.06.em
 )
 
-// ============================================================
-// Плеер в стиле Nothing OS: обложка в светящемся контуре,
-// кнопки тонкими линиями без заливки, стеклянная панель
-// SLOWED + REVERB с ползунками прямо на экране.
-// ФУНКЦИИ СОХРАНЕНЫ ПОЛНОСТЬЮ: очередь (drag/кнопки), FX-лист,
-// лайки, плейлисты, поиск, настройки, GIF-оверлей в такт музыке,
-// воспроизведение из поиска и со старта очереди.
-// ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -147,7 +140,6 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // Верхний бар
         Row(
             Modifier
                 .fillMaxWidth()
@@ -173,8 +165,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(0.15f))
 
-        // Обложка: светящийся контур (внешнее мягкое свечение + тонкая линия),
-        // внутри — арт трека и GIF-оверлей в такт музыке
+        // Обложка: светящийся контур + арт + GIF в такт музыке
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
@@ -207,7 +198,6 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.xl))
 
-        // Название / статус очереди + лайк
         Row(
             Modifier
                 .fillMaxWidth()
@@ -257,7 +247,6 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Слайдер прогресса + время точечным шрифтом
         Slider(
             value = state.positionMs.toFloat().coerceIn(0f, state.durationMs.toFloat().coerceAtLeast(1f)),
             onValueChange = { viewModel.seekTo(it.toLong()) },
@@ -277,7 +266,6 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Ряд управления: тонкие линии без заливки, play — контурный квадрат
         Row(
             Modifier
                 .fillMaxWidth()
@@ -324,10 +312,8 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Стеклянная панель SLOWED + REVERB: ползунки скорости и реверба
-        ZedGlassCard(
-            modifier = Modifier.padding(horizontal = ZedSpacing.xl)
-        ) {
+        // Стеклянная панель SLOWED + REVERB
+        ZedGlassCard(modifier = Modifier.padding(horizontal = ZedSpacing.xl)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.player_fx_panel),
@@ -365,7 +351,6 @@ fun PlayerScreen(
 
         Spacer(Modifier.weight(1f))
 
-        // Нижняя панель: настройки | эквалайзер | текст | очередь | ещё
         Row(
             Modifier
                 .fillMaxWidth()
@@ -395,7 +380,6 @@ fun PlayerScreen(
         }
     }
 
-    // --- Bottom sheets ---
     when (sheet) {
         Sheet.FX -> FxBottomSheet(
             speed = state.speed,
@@ -456,8 +440,6 @@ fun PlayerScreen(
     }
 }
 
-// Очередь: открывается С ИГРАЮЩЕГО ТРЕКА, тап — играть,
-// долгий тап + драг — переместить, кнопки + / вверх / вниз
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSheet(
@@ -549,7 +531,7 @@ private fun QueueSheet(
                     }
                     IconButton(onClick = { onMove(track.id, 1) }) {
                         Icon(Icons.Outlined.KeyboardArrowDown, null, tint = colors.textSecondary, modifier = Modifier.size(20.dp))
-                    }
+                    )
                 }
             }
         }
