@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
@@ -61,22 +62,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.zed.app.R
 import com.zed.app.core.domain.model.AudioTrack
+import com.zed.app.ui.components.ZedGlassCard
+import com.zed.app.ui.theme.DotoFont
 import com.zed.app.ui.theme.LocalZedColors
-import com.zed.app.ui.theme.ZedDataNumber
 import com.zed.app.ui.theme.ZedRadius
 import com.zed.app.ui.theme.ZedSpacing
 
@@ -86,6 +94,21 @@ private fun audioPermission(): String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
+// Точечный шрифт для времени и чисел плеера
+private val DotTime = TextStyle(
+    fontFamily = DotoFont,
+    fontSize = 12.sp,
+    letterSpacing = 0.06.em
+)
+
+// ============================================================
+// Плеер в стиле Nothing OS: обложка в светящемся контуре,
+// кнопки тонкими линиями без заливки, стеклянная панель
+// SLOWED + REVERB с ползунками прямо на экране.
+// ФУНКЦИИ СОХРАНЕНЫ ПОЛНОСТЬЮ: очередь (drag/кнопки), FX-лист,
+// лайки, плейлисты, поиск, настройки, GIF-оверлей в такт музыке,
+// воспроизведение из поиска и со старта очереди.
+// ============================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
@@ -148,15 +171,23 @@ fun PlayerScreen(
             }
         }
 
-        Spacer(Modifier.weight(0.2f))
+        Spacer(Modifier.weight(0.15f))
 
-        // Обложка: прозрачная подложка; поверх — GIF из APK в такт музыке
-        // (уровень/бас/пауза приходят из аудиопроцессора), иначе dot-matrix
+        // Обложка: светящийся контур (внешнее мягкое свечение + тонкая линия),
+        // внутри — арт трека и GIF-оверлей в такт музыке
         Box(
             Modifier
                 .fillMaxWidth(0.62f)
                 .aspectRatio(1f)
                 .align(Alignment.CenterHorizontally)
+                .drawBehind {
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.16f),
+                        cornerRadius = CornerRadius(18.dp.toPx()),
+                        style = Stroke(6.dp.toPx())
+                    )
+                }
+                .border(1.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
         ) {
             AsyncImage(
                 model = state.current?.artUri,
@@ -207,7 +238,7 @@ fun PlayerScreen(
                         Spacer(Modifier.height(ZedSpacing.xxs))
                         Text(
                             text = cur.artist,
-                            style = ZedDataNumber,
+                            style = DotTime,
                             color = colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -226,7 +257,7 @@ fun PlayerScreen(
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Слайдер прогресса
+        // Слайдер прогресса + время точечным шрифтом
         Slider(
             value = state.positionMs.toFloat().coerceIn(0f, state.durationMs.toFloat().coerceAtLeast(1f)),
             onValueChange = { viewModel.seekTo(it.toLong()) },
@@ -239,14 +270,14 @@ fun PlayerScreen(
             modifier = Modifier.padding(horizontal = ZedSpacing.xl)
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = ZedSpacing.xl)) {
-            Text(formatTime(state.positionMs), style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+            Text(formatTime(state.positionMs), style = DotTime, color = colors.textSecondary)
             Spacer(Modifier.weight(1f))
-            Text(formatTime(state.durationMs), style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+            Text(formatTime(state.durationMs), style = DotTime, color = colors.textSecondary)
         }
 
         Spacer(Modifier.height(ZedSpacing.lg))
 
-        // Ряд управления
+        // Ряд управления: тонкие линии без заливки, play — контурный квадрат
         Row(
             Modifier
                 .fillMaxWidth()
@@ -267,15 +298,15 @@ fun PlayerScreen(
             Box(
                 Modifier
                     .size(64.dp)
-                    .background(colors.accent, RoundedCornerShape(16.dp))
+                    .border(1.dp, colors.accent, RoundedCornerShape(16.dp))
                     .clickable { viewModel.togglePlayPause() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     if (state.isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                     null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    tint = colors.textDisplay,
+                    modifier = Modifier.size(30.dp)
                 )
             }
             Icon(
@@ -288,6 +319,47 @@ fun PlayerScreen(
                 null,
                 tint = if (state.repeatMode == 0) colors.textDisabled else colors.accent,
                 modifier = Modifier.size(22.dp).clickable { viewModel.cycleRepeat() }
+            )
+        }
+
+        Spacer(Modifier.height(ZedSpacing.lg))
+
+        // Стеклянная панель SLOWED + REVERB: ползунки скорости и реверба
+        ZedGlassCard(
+            modifier = Modifier.padding(horizontal = ZedSpacing.xl)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.player_fx_panel),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textDisabled,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = String.format(Locale.US, "%.2fx", state.speed),
+                    style = DotTime,
+                    color = if (state.speed != 1f) colors.accent else colors.textSecondary
+                )
+            }
+            Slider(
+                value = state.speed,
+                onValueChange = viewModel::setSpeed,
+                valueRange = 0.5f..1.5f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = colors.accent,
+                    inactiveTrackColor = colors.borderVisible
+                )
+            )
+            Slider(
+                value = state.reverb.toFloat(),
+                onValueChange = { viewModel.setReverb(it.toInt()) },
+                valueRange = 0f..100f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = colors.borderVisible,
+                    inactiveTrackColor = colors.border
+                )
             )
         }
 
@@ -384,8 +456,8 @@ fun PlayerScreen(
     }
 }
 
-// Очередь: открывается С ИГРАЮЩЕГО ТРЕКА (лента вверх/вниз от него),
-// тап — играть, долгий тап + драг — переместить, кнопки + / вверх / вниз
+// Очередь: открывается С ИГРАЮЩЕГО ТРЕКА, тап — играть,
+// долгий тап + драг — переместить, кнопки + / вверх / вниз
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSheet(
@@ -400,7 +472,6 @@ private fun QueueSheet(
     val density = LocalDensity.current
     val rowPx = with(density) { 56.dp.toPx() }
 
-    // Старт ленты с текущей позиции воспроизведения
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = queueIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0))
     )
