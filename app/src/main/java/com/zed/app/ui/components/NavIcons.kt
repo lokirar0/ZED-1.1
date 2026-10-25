@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
@@ -16,13 +17,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContentColor
 import androidx.compose.ui.unit.dp
 
 // ============================================================
 // СМЕНЯЕМЫЕ ИКОНКИ НИЖНЕГО МЕНЮ.
-// Набор 0 = ЛИНИИ (Material outlined), набор 1 = ТОЧКИ
-// (dot-matrix 5×5 в стиле Glyph Matrix, как на макетах).
+// Набор 0 = ЛИНИИ (Material outlined), набор 1 = ТОЧКИ (dot-matrix 5×5).
 // Выбор хранится в SharedPreferences и живёт как Compose State —
 // переключение в настройках мгновенно перерисовывает меню.
 // ============================================================
@@ -47,18 +46,16 @@ object NavIconStore {
     fun set(context: Context, value: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putInt(KEY, value).apply()
-        state?.intValue = value
+        state?.value = value
     }
 }
 
-// Ключи вкладок для выбора паттерна
 const val NAV_HABITS = "habits"
 const val NAV_FINANCE = "finance"
 const val NAV_CREDITS = "credits"
 const val NAV_PLAYER = "player"
 
-// Точка входа для NavigationBarItem: цвет берётся из LocalContentColor,
-// поэтому selected/unselected оттенки работают как раньше
+// Цвет берётся из LocalContentColor: selected/unselected оттенки работают как раньше
 @Composable
 fun NavIcon(route: String, set: Int, modifier: Modifier = Modifier) {
     val color = LocalContentColor.current
@@ -75,7 +72,6 @@ fun NavIcon(route: String, set: Int, modifier: Modifier = Modifier) {
     }
 }
 
-// Dot-matrix иконки: паттерн 5×5 точек на вкладку
 @Composable
 private fun DotNavIcon(route: String, color: Color, modifier: Modifier) {
     val pattern = when (route) {
@@ -101,7 +97,6 @@ private fun DotNavIcon(route: String, color: Color, modifier: Modifier) {
     }
 }
 
-// Галочка (привычки)
 private val CHECK_PATTERN = listOf(
     booleanArrayOf(false, false, false, false, false),
     booleanArrayOf(true, false, false, false, true),
@@ -110,7 +105,6 @@ private val CHECK_PATTERN = listOf(
     booleanArrayOf(false, false, false, false, false)
 )
 
-// Монета с точкой (финансы)
 private val COIN_PATTERN = listOf(
     booleanArrayOf(false, true, true, true, false),
     booleanArrayOf(true, false, false, false, true),
@@ -119,7 +113,6 @@ private val COIN_PATTERN = listOf(
     booleanArrayOf(false, true, true, true, false)
 )
 
-// Календарь с отметкой (кредиты)
 private val CAL_PATTERN = listOf(
     booleanArrayOf(true, true, true, true, true),
     booleanArrayOf(true, false, false, false, true),
@@ -128,7 +121,6 @@ private val CAL_PATTERN = listOf(
     booleanArrayOf(true, true, true, true, true)
 )
 
-// Волна (плеер)
 private val WAVE_PATTERN = listOf(
     booleanArrayOf(false, false, true, false, false),
     booleanArrayOf(false, true, true, true, false),
