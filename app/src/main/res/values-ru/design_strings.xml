@@ -13,4 +13,11 @@
     <string name="fin_chart">6 МЕСЯЦЕВ</string>
     <string name="fin_categories">КАТЕГОРИИ</string>
     <string name="fin_calendar">КАЛЕНДАРЬ ПЛАТЕЖЕЙ</string>
+    <string name="cr_calendar">КАЛЕНДАРЬ ПЛАТЕЖЕЙ</string>
+    <string name="cr_weekdays">Пн,Вт,Ср,Чт,Пт,Сб,Вс</string>
+    <string name="cr_next">БЛИЖАЙШИЙ ПЛАТЁЖ</string>
+    <string name="cr_due_format">СПИСАНИЕ | %1$s</string>
+    <string name="cr_empty_title">НЕТ КРЕДИТОВ</string>
+    <string name="cr_empty_body">Добавь кредит, чтобы следить за платежами и сроками</string>
+    <string name="cr_add">ДОБАВИТЬ КРЕДИТ</string>
 </resources>
